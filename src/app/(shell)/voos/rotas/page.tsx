@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { requireSession } from "@/lib/auth";
-import { githubConfigured, readRoutesFile } from "@/lib/github";
+import { flightsApi, flightsApiConfigured, type RoutesConfig } from "@/lib/flights-api";
 import { RoutesEditor } from "./RoutesEditor";
 
 export const metadata: Metadata = { title: "Editar rotas" };
@@ -11,32 +11,37 @@ export default async function RotasPage() {
   await requireSession("/voos/rotas");
 
   let content: React.ReactNode;
-  if (!githubConfigured()) {
+  if (!flightsApiConfigured()) {
     content = (
       <div className="card">
         <p style={{ marginTop: 0 }}>
-          Para salvar daqui, o toso one precisa de um token do GitHub com acesso ao repositório do Flight Tracker.
+          O editor usa a API do próprio Flight Tracker. Falta dizer ao toso one onde ela está e qual é a senha:
         </p>
         <ol style={{ color: "var(--ink-2)", fontSize: 13.5, lineHeight: 1.7 }}>
           <li>
-            GitHub → Settings → Developer settings → <b>Fine-grained tokens</b> → Generate new token.
+            <code>FLIGHTS_URL</code>: o endereço do Flight Tracker na Vercel.
           </li>
           <li>
-            Repository access: <b>Only select repositories</b> → Flight_Tracker.
+            <code>FLIGHTS_EDIT_PASSWORD</code>: o mesmo valor de <code>MONITOR_EDIT_PASSWORD</code> do projeto do Flight Tracker.
           </li>
-          <li>
-            Permissions: <b>Contents: Read and write</b> e <b>Actions: Read and write</b>.
-          </li>
-          <li>
-            Na Vercel, cadastre o token como <code>GITHUB_TOKEN</code> e faça um Redeploy.
-          </li>
+          <li>Cadastre as duas na Vercel do toso one e faça um Redeploy.</li>
         </ol>
       </div>
     );
   } else {
     try {
-      const file = await readRoutesFile();
-      content = <RoutesEditor initialConfig={file.config} initialSha={file.sha} />;
+      const [config, schedule] = await Promise.all([
+        flightsApi<{ config: RoutesConfig; sha: string }>("config"),
+        flightsApi<{ times: string[]; sha: string }>("schedule").catch(() => null),
+      ]);
+      content = (
+        <RoutesEditor
+          initialConfig={config.config}
+          initialSha={config.sha}
+          initialTimes={schedule?.times ?? null}
+          scheduleSha={schedule?.sha ?? null}
+        />
+      );
     } catch (err) {
       content = <div className="card form-error">{(err as Error).message}</div>;
     }
@@ -49,7 +54,7 @@ export default async function RotasPage() {
           <Icon name="back" size={15} />
         </Link>
         <div>
-          <p className="eyebrow">voos · routes.json</p>
+          <p className="eyebrow">voos · o que monitorar</p>
           <h1>Editar rotas</h1>
         </div>
       </div>

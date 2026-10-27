@@ -5,7 +5,7 @@ import { Sparkline } from "@/components/charts/Sparkline";
 import { FlightArt } from "@/components/FlightArt";
 import { Icon } from "@/components/Icon";
 import { getSession } from "@/lib/auth";
-import { detailsText, fetchFlights, flightsUrl, tripText, type FlightData, type FlightRoute } from "@/lib/flights";
+import { detailsText, fetchFlights, flightsUrl, fmtDay, stayDays, type FlightData, type FlightRoute } from "@/lib/flights";
 import { brl } from "@/lib/format";
 import { THEME_COOKIE } from "@/lib/theme";
 
@@ -25,11 +25,37 @@ function Ladder({ route }: { route: FlightRoute }) {
   );
 }
 
+function Legs({ route }: { route: FlightRoute }) {
+  const b = route.best!;
+  return (
+    <div className="fl-legs">
+      <div className="fl-leg">
+        <span className="fl-leg-k">ida</span>
+        <b>{fmtDay(b.departDate)}</b>
+        {b.departTime && b.arriveTime && (
+          <span className="fl-time">
+            {b.departTime} {route.origin} → {b.arriveTime}
+            {b.arriveAhead ? <sup>+{b.arriveAhead}</sup> : null} {route.destination}
+          </span>
+        )}
+      </div>
+      {b.returnDate && (
+        <div className="fl-leg">
+          <span className="fl-leg-k">volta</span>
+          <b>{fmtDay(b.returnDate)}</b>
+          <span className="fl-time">{stayDays(b)} dias depois</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RouteCard({ route, minDays }: { route: FlightRoute; minDays: number }) {
   const b = route.best!;
   const v = route.verdict;
   return (
     <li className={`fl-card ${v.key}`}>
+      <Link className="fl-card-link" href={`/voos/${route.id}`} aria-label={`${route.origin} para ${route.destination}: datas e detalhes`} />
       <div className="fl-card-head">
         <span className="fl-pair">
           <b>{route.origin}</b>
@@ -40,8 +66,11 @@ function RouteCard({ route, minDays }: { route: FlightRoute; minDays: number }) 
         <span className={`fl-tag ${v.key}`}>{v.label}</span>
       </div>
       <div className="fl-price">{brl(b.price)}</div>
-      <div className="fl-trip">{tripText(b)}</div>
-      <div className="fl-meta">{detailsText(b)}</div>
+      <Legs route={route} />
+      <div className="fl-meta">
+        {detailsText(b)}
+        {route.fares.length > 1 ? ` · ${route.fares.length} combinações de datas vistas` : ""}
+      </div>
       {route.stats && <Ladder route={route} />}
       <div className="fl-foot">
         <span className="fl-why">
@@ -54,9 +83,14 @@ function RouteCard({ route, minDays }: { route: FlightRoute; minDays: number }) 
           <span className="eyebrow" style={{ margin: 0 }}>histórico curto</span>
         )}
       </div>
-      <a className="fl-buy" href={b.bookingUrl} target="_blank" rel="noopener noreferrer">
-        Ver no Google Flights <Icon name="external" size={13} />
-      </a>
+      <div className="fl-links">
+        <span className="fl-buy">
+          Datas e detalhes <Icon name="arrow" size={13} />
+        </span>
+        <a className="fl-buy" href={b.bookingUrl} target="_blank" rel="noopener noreferrer">
+          Conferir no Google <Icon name="external" size={13} />
+        </a>
+      </div>
     </li>
   );
 }
@@ -75,13 +109,18 @@ function Hero({ data }: { data: FlightData }) {
           <b>{deal.origin}</b> → <b>{deal.destination}</b> · {deal.city}
         </p>
         <p className="fl-hero-price">{brl(b.price)}</p>
-        <p className="fl-hero-trip">{tripText(b)}</p>
+        <Legs route={deal} />
         <p className="fl-hero-meta">
           {detailsText(b)} · {deal.verdict.why}
         </p>
-        <a className="fl-hero-buy" href={b.bookingUrl} target="_blank" rel="noopener noreferrer">
-          Ver estas datas no Google Flights <Icon name="external" size={14} />
-        </a>
+        <div className="fl-hero-actions">
+          <Link className="fl-hero-buy" href={`/voos/${deal.id}`}>
+            Ver datas e detalhes <Icon name="arrow" size={14} />
+          </Link>
+          <a className="fl-hero-ghost" href={b.bookingUrl} target="_blank" rel="noopener noreferrer">
+            Conferir no Google Flights <Icon name="external" size={14} />
+          </a>
+        </div>
       </section>
     );
   }
@@ -162,9 +201,9 @@ export default async function VoosPage() {
               <p>Sem dados com ida {data.windowText}:</p>
               <div className="chips">
                 {missing.map((r) => (
-                  <span key={r.id} className="chip">
+                  <Link key={r.id} className="chip" href={`/voos/${r.id}`}>
                     {r.origin}→{r.destination}
-                  </span>
+                  </Link>
                 ))}
               </div>
             </div>

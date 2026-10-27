@@ -62,16 +62,15 @@ cadastre as variáveis de ambiente:
 | `TOSO_SESSION_SECRET` | Outro segredo: `openssl rand -base64 48` |
 | `TOSO_PASSWORD` | Sua senha de reserva. Use uma frase longa |
 | `FLIGHTS_URL` | Endereço do Flight Tracker na Vercel, sem barra no fim |
-| `GITHUB_TOKEN` | Token do GitHub para o editor de rotas (ver abaixo) |
+| `FLIGHTS_EDIT_PASSWORD` | O mesmo valor de `MONITOR_EDIT_PASSWORD` do projeto do Flight Tracker |
 
 O `vercel.json` já cuida do resto: com `CONVEX_DEPLOY_KEY` presente, o build
 publica as funções do Convex e depois compila o Next com a URL certa.
 
-**Token do editor de rotas.** GitHub → Settings → Developer settings →
-Fine-grained tokens → Generate new token. Repository access: só
-`Flight_Tracker`. Permissions: **Contents: Read and write** (salvar rotas) e
-**Actions: Read and write** (botão "Coletar agora"). Sem o token, a página
-de Voos funciona normalmente e o editor mostra estas instruções.
+**Editor de rotas.** Quem grava no GitHub é a API do próprio Flight
+Tracker (`api/` daquele repositório), que já tem o token. O toso one só
+repassa os pedidos com a senha dela. Sem `FLIGHTS_EDIT_PASSWORD`, a página
+de Voos funciona normalmente e o editor mostra o que falta.
 
 ### 3. Primeiro acesso
 
@@ -100,20 +99,32 @@ indisponível em Ajustes.
 ## Voos
 
 O Flight Tracker continua coletando sozinho no GitHub Actions e publicando
-um `data.json` na Vercel. O toso one lê esse arquivo (cache de 10 min) e
-mostra cada rota com a tarifa mais barata da última coleta, **as datas de
-ida e volta que a produziram**, companhia, conexões e um link que reabre a
-mesma busca no Google Flights.
+um `data.json` na Vercel. O toso one lê esse arquivo (cache de 10 min).
 
-**Editar rotas** (privado) lê e grava o `routes.json` do Flight Tracker pela
-API do GitHub: cada "Salvar" é um commit. A busca de aeroportos aceita
-cidade em português, nome ou código, sobre a base do
-[OurAirports](https://ourairports.com/data/) (domínio público) em
+- **`/voos`**: veredito do dia e um card por rota com a tarifa mais barata
+  da última coleta, ida (com horário de partida e chegada) e volta.
+- **`/voos/ORIGEM-DESTINO`**: o "bilhete" da melhor tarifa, calendário com o
+  menor preço visto para cada dia de ida, as voltas consultadas de cada dia
+  com preço, horário e a avaliação do próprio Google (baixo/típico/alto),
+  a tabela de todas as tarifas vistas nos últimos 45 dias e o histórico.
+  Cada tarifa tem um link que reabre exatamente aquela busca no Google
+  Flights (mesmas datas, executiva, 1 adulto, BRL) para conferir o preço de
+  agora e comprar.
+- **`/voos/rotas`** (privado): rotas agrupadas por destino. Adicionar várias
+  origens × vários destinos de uma vez, trocar o destino de um grupo ou a
+  origem de uma rota, aplicar datas em lote, pausar, horários da coleta e
+  "coletar agora" com o andamento das execuções.
+
+A busca de aeroportos aceita cidade em português, nome ou código, sobre a
+base do [OurAirports](https://ourairports.com/data/) (domínio público) em
 `src/data/airports.json`. Para regerar: `scripts/build-airports.py`.
 
-Rotas existentes não trocam origem/destino: o histórico de preços é
-indexado por `ORIGEM-DESTINO`. Para mudar, adicione a rota nova e desligue
-ou remova a antiga (o histórico fica guardado).
+O histórico de preços é indexado por `ORIGEM-DESTINO`: trocar a origem ou
+o destino de uma rota começa um histórico novo (o antigo fica guardado).
+
+O Google só mostra os voos de volta depois que se escolhe a ida, então a
+coleta conhece o horário da ida, e da volta só a data. O link de cada
+tarifa abre a busca com as duas datas.
 
 ## Adicionar um app
 

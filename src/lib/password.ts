@@ -19,19 +19,25 @@ export function passwordMatches(attempt: string): boolean {
 // da Vercel; sem ele, cai para memória (só serve no desenvolvimento).
 const memory = { failures: 0, windowStart: 0, lockedUntil: 0 };
 
-export async function lockedUntil(): Promise<number> {
-  if (convexConfigured()) {
-    const s = await convex().query(api.security.status, { secret: serverSecret() });
-    return s.lockedUntil as number;
+// Se o Convex estiver fora do ar, a trava cai para a memória em vez de
+// derrubar o login: a senha é justamente a saída quando o resto falha.
+async function viaConvex<T>(fn: () => Promise<T>): Promise<T | null> {
+  if (!convexConfigured()) return null;
+  try {
+    return await fn();
+  } catch {
+    return null;
   }
-  return memory.lockedUntil;
+}
+
+export async function lockedUntil(): Promise<number> {
+  const s = await viaConvex(() => convex().query(api.security.status, { secret: serverSecret() }));
+  return s ? (s.lockedUntil as number) : memory.lockedUntil;
 }
 
 export async function registerFailure(): Promise<number> {
-  if (convexConfigured()) {
-    const s = await convex().mutation(api.security.registerFailure, { secret: serverSecret() });
-    return s.lockedUntil as number;
-  }
+  const s = await viaConvex(() => convex().mutation(api.security.registerFailure, { secret: serverSecret() }));
+  if (s) return s.lockedUntil as number;
   const now = Date.now();
   if (now - memory.windowStart > 15 * 60_000) Object.assign(memory, { failures: 0, windowStart: now });
   memory.failures += 1;
@@ -40,6 +46,6 @@ export async function registerFailure(): Promise<number> {
 }
 
 export async function resetFailures(): Promise<void> {
-  if (convexConfigured()) await convex().mutation(api.security.reset, { secret: serverSecret() });
-  else Object.assign(memory, { failures: 0, lockedUntil: 0 });
+  const done = await viaConvex(() => convex().mutation(api.security.reset, { secret: serverSecret() }).then(() => true));
+  if (!done) Object.assign(memory, { failures: 0, lockedUntil: 0 });
 }

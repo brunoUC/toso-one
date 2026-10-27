@@ -7,7 +7,7 @@ import { Icon } from "./Icon";
 let cache: Airport[] | null = null;
 
 // A base (~64 KB comprimida) só é baixada quando o editor abre.
-function useAirports(): Airport[] | null {
+export function useAirports(): Airport[] | null {
   const [list, setList] = useState<Airport[] | null>(cache);
   useEffect(() => {
     if (cache) return;
@@ -24,11 +24,15 @@ export function AirportPicker({
   value,
   onChange,
   placeholder = "Cidade, aeroporto ou código",
+  autoFocus = false,
+  compact = false,
 }: {
   label: string;
   value: Airport | null;
   onChange: (a: Airport | null) => void;
   placeholder?: string;
+  autoFocus?: boolean;
+  compact?: boolean;
 }) {
   const airports = useAirports();
   const [query, setQuery] = useState("");
@@ -58,9 +62,10 @@ export function AirportPicker({
   }
 
   return (
-    <label className="ed-field ap">
+    <label className={`ed-field ap${compact ? " compact" : ""}`}>
       {label}
       <input
+        autoFocus={autoFocus}
         className="ed-input"
         role="combobox"
         aria-expanded={open && results.length > 0}

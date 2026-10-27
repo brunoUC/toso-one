@@ -14,17 +14,26 @@ export type FlightRoute = {
   verdict: Verdict;
   nDays: number;
   stats: { min: number; p25: number; median: number; max: number } | null;
-  best: {
-    price: number;
-    departDate: string;
-    returnDate: string | null;
-    airline: string | null;
-    stops: number | null;
-    duration: string | null;
-    asOf: string;
-    bookingUrl: string;
-  } | null;
+  best: (Fare & { asOf: string }) | null;
   series: { day: string; price: number }[];
+  fares: (Fare & { seenOn: string; options: number | null })[];
+  searchUrl: string;
+};
+
+// Uma tarifa vista: par (ida, volta) com o itinerário mais barato. Horários,
+// chegada e avaliação do Google só existem nas coletas a partir de 27/10/2026.
+export type Fare = {
+  price: number;
+  departDate: string;
+  returnDate: string | null;
+  airline: string | null;
+  stops: number | null;
+  duration: string | null;
+  departTime: string | null;
+  arriveTime: string | null;
+  arriveAhead: number;
+  googleLevel: "baixo" | "típico" | "alto" | null;
+  bookingUrl: string;
 };
 
 export type FlightData = {
@@ -63,13 +72,45 @@ export function fmtDay(iso: string): string {
   return `${WEEKDAYS[date.getUTCDay()]} ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
 }
 
-export function tripText(best: NonNullable<FlightRoute["best"]>): string {
+const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const WEEKDAYS_LONG = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+
+function utc(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+// "qui, 10 mai 2027"
+export function fmtDayLong(iso: string): string {
+  const date = utc(iso);
+  return `${WEEKDAYS_LONG[date.getUTCDay()]}, ${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+}
+
+export function addDays(iso: string, days: number): string {
+  const date = utc(iso);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export function stayDays(fare: Pick<Fare, "departDate" | "returnDate">): number | null {
+  return fare.returnDate ? Math.round((Date.parse(fare.returnDate) - Date.parse(fare.departDate)) / 86_400_000) : null;
+}
+
+export function stopsText(stops: number | null): string | null {
+  return stops === null ? null : stops === 0 ? "direto" : stops === 1 ? "1 conexão" : `${stops} conexões`;
+}
+
+export function tripText(best: Pick<Fare, "departDate" | "returnDate">): string {
   if (!best.returnDate) return `ida ${fmtDay(best.departDate)}`;
   const days = Math.round((Date.parse(best.returnDate) - Date.parse(best.departDate)) / 86_400_000);
   return `ida ${fmtDay(best.departDate)} → volta ${fmtDay(best.returnDate)} · ${days} dias`;
 }
 
-export function detailsText(best: NonNullable<FlightRoute["best"]>): string {
-  const stops = best.stops === null ? null : best.stops === 0 ? "direto" : best.stops === 1 ? "1 conexão" : `${best.stops} conexões`;
-  return [best.airline ?? "companhia não informada", stops, best.duration].filter(Boolean).join(" · ");
+export function detailsText(best: Pick<Fare, "airline" | "stops" | "duration">): string {
+  return [best.airline ?? "companhia não informada", stopsText(best.stops), best.duration].filter(Boolean).join(" · ");
+}
+
+export async function fetchRoute(id: string): Promise<{ data: FlightData | null; route: FlightRoute | null; error: string | null }> {
+  const { data, error } = await fetchFlights();
+  return { data, route: data?.routes.find((r) => r.id === id) ?? null, error };
 }

@@ -1,36 +1,44 @@
 import { NextResponse } from "next/server";
 import { getSession, relyingParty } from "@/lib/auth";
 import { logEvent } from "@/lib/convex";
-import { GitHubError, githubConfigured, readRoutesFile, writeRoutesFile } from "@/lib/github";
-import { describeChanges, validateConfig, type RouteConfig } from "@/lib/routes-config";
+import { FlightsApiError, flightsApi, type RoutesConfig } from "@/lib/flights-api";
 
-export async function POST(request: Request) {
+function fail(err: unknown) {
+  const e = err instanceof FlightsApiError ? err : new FlightsApiError((err as Error).message, 500);
+  return NextResponse.json({ error: e.message, details: e.details }, { status: e.status });
+}
+
+// Resumo do que mudou, para a atividade do hub.
+function describe(before: RoutesConfig["routes"], after: RoutesConfig["routes"]): string {
+  const prev = new Map(before.map((r) => [r.id, JSON.stringify(r)]));
+  const next = new Map(after.map((r) => [`${r.origin}-${r.destination}`, JSON.stringify(r)]));
+  const parts: string[] = [];
+  for (const [id, json] of next) parts.push(!prev.has(id) ? `+${id}` : prev.get(id) !== json ? `~${id}` : "");
+  for (const id of prev.keys()) if (!next.has(id)) parts.push(`−${id}`);
+  return parts.filter(Boolean).join(", ") || "padrões";
+}
+
+export async function PUT(request: Request) {
   if (!(await getSession())) return NextResponse.json({ error: "Entre primeiro." }, { status: 401 });
-  if (!githubConfigured()) return NextResponse.json({ error: "GITHUB_TOKEN não configurado." }, { status: 503 });
-
-  const body = (await request.json().catch(() => null)) as { config?: unknown; sha?: unknown } | null;
-  if (!body || typeof body.sha !== "string") return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
-
+  const body = (await request.json().catch(() => null)) as { config?: RoutesConfig; sha?: string; before?: RoutesConfig["routes"] } | null;
+  if (!body?.config || !body.sha) return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
   try {
-    // Relê o arquivo: valida contra o estado atual e preserva o que o editor
-    // não controla. O sha garante que ninguém salvou no meio do caminho.
-    const current = await readRoutesFile();
-    if (current.sha !== body.sha) {
-      return NextResponse.json({ error: "O routes.json mudou desde que você abriu o editor. Recarregue a página." }, { status: 409 });
-    }
-    const { config, errors } = validateConfig(body.config, current.config);
-    if (errors.length) return NextResponse.json({ error: "Corrija antes de salvar.", details: errors }, { status: 422 });
-
     // A página própria do Flight Tracker usa hub_url nos botões de navegação.
     const { origin } = await relyingParty();
-    if (!origin.startsWith("http://localhost")) config.hub_url = origin;
-
-    const summary = describeChanges((current.config.routes ?? []) as RouteConfig[], config.routes);
-    const saved = await writeRoutesFile(config, current.sha, `rotas: ${summary} (editor do toso one)`);
-    await logEvent("routes_saved", summary);
-    return NextResponse.json({ ok: true, sha: saved.sha, commitUrl: saved.commitUrl, config });
+    const config = { ...body.config, ...(origin.startsWith("http://localhost") ? {} : { hub_url: origin }) };
+    const saved = await flightsApi<{ sha: string }>("config", { method: "PUT", body: { config, sha: body.sha } });
+    await logEvent("routes_saved", describe(body.before ?? [], config.routes));
+    return NextResponse.json({ ok: true, sha: saved.sha });
   } catch (err) {
-    const status = err instanceof GitHubError ? err.status : 500;
-    return NextResponse.json({ error: (err as Error).message }, { status: status >= 400 ? status : 500 });
+    return fail(err);
+  }
+}
+
+export async function GET() {
+  if (!(await getSession())) return NextResponse.json({ error: "Entre primeiro." }, { status: 401 });
+  try {
+    return NextResponse.json(await flightsApi("config"));
+  } catch (err) {
+    return fail(err);
   }
 }
