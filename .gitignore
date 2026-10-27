@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Segredos locais — nunca versionar.
+.env
+.env.local
+.env.*.local
+
+# Gerado pelo `npx convex dev`/`deploy`. O código usa as funções
+# genéricas do Convex e não depende desses arquivos.
+convex/_generated/
+.vercel/
