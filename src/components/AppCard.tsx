@@ -22,6 +22,8 @@ function Badge({ app, unlocked }: { app: AppEntry; unlocked: boolean }) {
   return <span className="badge">{app.status === "beta" ? "beta" : "em breve"}</span>;
 }
 
+export type FlightHighlight = { label: string; route: string; price: string; trip: string } | null;
+
 function FlightArc() {
   return (
     <>
@@ -37,7 +39,7 @@ function FlightArc() {
   );
 }
 
-export function AppCard({ app, unlocked }: { app: AppEntry; unlocked: boolean }) {
+export function AppCard({ app, unlocked, flight }: { app: AppEntry; unlocked: boolean; flight?: FlightHighlight }) {
   const locked = app.private && !unlocked;
   const href = locked ? `/entrar?de=${encodeURIComponent(app.href)}` : app.href;
 
@@ -53,6 +55,15 @@ export function AppCard({ app, unlocked }: { app: AppEntry; unlocked: boolean })
       <div className="app-desc">{app.description}</div>
 
       {app.id === "voos" && <FlightArc />}
+      {app.id === "voos" && flight && (
+        <div className="app-flight">
+          <span className="eyebrow" style={{ margin: 0 }}>{flight.label}</span>
+          <div>
+            <b>{flight.route}</b> · {flight.price}
+          </div>
+          <span className="app-flight-trip">{flight.trip}</span>
+        </div>
+      )}
 
       <div className="app-body">
         {locked ? (

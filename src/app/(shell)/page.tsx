@@ -1,11 +1,12 @@
-import { AppCard, NextAppCard } from "@/components/AppCard";
+import { AppCard, NextAppCard, type FlightHighlight } from "@/components/AppCard";
 import { EnablePasskeyButton } from "@/components/EnablePasskey";
 import { Icon, type IconName } from "@/components/Icon";
 import { Circuit, RobotArm } from "@/components/RobotArm";
 import { APPS } from "@/lib/apps";
 import { getSession } from "@/lib/auth";
 import { convexConfigured, recentEvents, type ActivityEvent } from "@/lib/convex";
-import { dateEyebrow, greeting, relativeDay } from "@/lib/format";
+import { fetchFlights, tripText } from "@/lib/flights";
+import { brl, dateEyebrow, greeting, relativeDay } from "@/lib/format";
 
 const EVENT_LABEL: Record<string, { icon: IconName; text: (d: string) => string }> = {
   login_passkey: { icon: "face", text: (d) => `Entrada com Face ID · ${d}` },
@@ -13,6 +14,8 @@ const EVENT_LABEL: Record<string, { icon: IconName; text: (d: string) => string 
   passkey_added: { icon: "check", text: (d) => `Face ID ativado · ${d}` },
   passkey_removed: { icon: "lock", text: (d) => `Face ID removido · ${d}` },
   password_locked: { icon: "lock", text: () => "Senha travada por 15 min após 5 erros" },
+  routes_saved: { icon: "edit", text: (d) => `Rotas de voos salvas · ${d}` },
+  collect_dispatched: { icon: "refresh", text: () => "Coleta de voos iniciada à mão" },
 };
 
 function Activity({ events }: { events: ActivityEvent[] }) {
@@ -38,8 +41,20 @@ function Activity({ events }: { events: ActivityEvent[] }) {
 }
 
 export default async function HubPage() {
-  const session = await getSession();
+  const [session, flights] = await Promise.all([getSession(), fetchFlights()]);
   const events = session ? await recentEvents(5) : [];
+  // Destaque do card de Voos: a melhor tarifa com veredito "comprar"/"avaliar",
+  // ou a mais barata de todas quando nenhuma entrou na faixa.
+  const routes = flights.data?.routes.filter((r) => r.best) ?? [];
+  const top = routes[0];
+  const flight: FlightHighlight = top?.best
+    ? {
+        label: flights.data?.hero.state === "deal" ? `melhor agora · ${top.verdict.label}` : "mais barata agora",
+        route: `${top.origin} → ${top.destination}`,
+        price: brl(top.best.price),
+        trip: tripText(top.best),
+      }
+    : null;
   const privateCount = APPS.filter((a) => a.private).length;
   const daysLeft = session ? Math.max(0, Math.ceil((session.expiresAt * 1000 - Date.now()) / 86_400_000)) : null;
 
@@ -108,7 +123,7 @@ export default async function HubPage() {
       </div>
       <div className="apps rise">
         {APPS.map((app) => (
-          <AppCard key={app.id} app={app} unlocked={Boolean(session)} />
+          <AppCard key={app.id} app={app} unlocked={Boolean(session)} flight={flight} />
         ))}
         <NextAppCard />
       </div>

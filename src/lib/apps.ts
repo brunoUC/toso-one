@@ -39,7 +39,7 @@ export const APPS: AppEntry[] = [
 ];
 
 // Rotas que não são apps mas também exigem sessão.
-const PRIVATE_EXTRA = ["/ajustes"];
+const PRIVATE_EXTRA = ["/ajustes", "/voos/rotas"];
 
 export const PRIVATE_PREFIXES = [
   ...APPS.filter((a) => a.private).map((a) => a.href),

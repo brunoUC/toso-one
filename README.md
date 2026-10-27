@@ -4,7 +4,7 @@ Hub pessoal de ferramentas. Hoje tem dois apps:
 
 | App | Acesso | O que é |
 |---|---|---|
-| **Voos** | aberto | O [Flight Tracker](https://github.com/brunoUC/Flight_Tracker) incorporado, servido sob o mesmo domínio |
+| **Voos** | aberto (editor privado) | Tarifas do [Flight Tracker](https://github.com/brunoUC/Flight_Tracker), com datas, link de compra e editor de rotas |
 | **Finanças** | privado | Patrimônio, metas e carteira. Por enquanto com **dados de exemplo** |
 
 Next.js 16 + Convex. Login com **Face ID / Touch ID (passkey)** e senha de reserva.
@@ -62,12 +62,16 @@ cadastre as variáveis de ambiente:
 | `TOSO_SESSION_SECRET` | Outro segredo: `openssl rand -base64 48` |
 | `TOSO_PASSWORD` | Sua senha de reserva. Use uma frase longa |
 | `FLIGHTS_URL` | Endereço do Flight Tracker na Vercel, sem barra no fim |
+| `GITHUB_TOKEN` | Token do GitHub para o editor de rotas (ver abaixo) |
 
 O `vercel.json` já cuida do resto: com `CONVEX_DEPLOY_KEY` presente, o build
 publica as funções do Convex e depois compila o Next com a URL certa.
 
-`FLIGHTS_URL` vira um rewrite no build: depois de mudar o valor, faça um
-**Redeploy**.
+**Token do editor de rotas.** GitHub → Settings → Developer settings →
+Fine-grained tokens → Generate new token. Repository access: só
+`Flight_Tracker`. Permissions: **Contents: Read and write** (salvar rotas) e
+**Actions: Read and write** (botão "Coletar agora"). Sem o token, a página
+de Voos funciona normalmente e o editor mostra estas instruções.
 
 ### 3. Primeiro acesso
 
@@ -92,6 +96,24 @@ Sem Convex configurado o app funciona só com senha: o Face ID aparece como
 indisponível em Ajustes.
 
 ---
+
+## Voos
+
+O Flight Tracker continua coletando sozinho no GitHub Actions e publicando
+um `data.json` na Vercel. O toso one lê esse arquivo (cache de 10 min) e
+mostra cada rota com a tarifa mais barata da última coleta, **as datas de
+ida e volta que a produziram**, companhia, conexões e um link que reabre a
+mesma busca no Google Flights.
+
+**Editar rotas** (privado) lê e grava o `routes.json` do Flight Tracker pela
+API do GitHub: cada "Salvar" é um commit. A busca de aeroportos aceita
+cidade em português, nome ou código, sobre a base do
+[OurAirports](https://ourairports.com/data/) (domínio público) em
+`src/data/airports.json`. Para regerar: `scripts/build-airports.py`.
+
+Rotas existentes não trocam origem/destino: o histórico de preços é
+indexado por `ORIGEM-DESTINO`. Para mudar, adicione a rota nova e desligue
+ou remova a antiga (o histórico fica guardado).
 
 ## Adicionar um app
 
