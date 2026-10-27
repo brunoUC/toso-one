@@ -47,8 +47,11 @@ export type FlightData = {
   routes: FlightRoute[];
 };
 
+// Produção do Flight Tracker na Vercel. Não é segredo; FLIGHTS_URL sobrescreve.
+const DEFAULT_FLIGHTS_URL = "https://flight-tracker-seven-drab-10.vercel.app";
+
 export function flightsUrl(): string | null {
-  return process.env.FLIGHTS_URL?.replace(/\/+$/, "") || null;
+  return (process.env.FLIGHTS_URL || DEFAULT_FLIGHTS_URL).replace(/\/+$/, "") || null;
 }
 
 // O data.json muda uma vez por dia (coleta das 05:13). Cache de 10 min basta.
