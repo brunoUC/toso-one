@@ -108,9 +108,11 @@ export function BudgetTable({ rows, pace, monthLabel }: { rows: BudgetRow[]; pac
                     const ratio = r.limit ? r.spent / r.limit : r.spent > 0 ? 2 : 0;
                     const over = r.projected > r.limit * 1.02;
                     return (
-                      <tr key={r.id}>
+                      <tr key={r.id} className="bud-row">
                         <td>
-                          <Link href={r.href}>{r.name}</Link>
+                          <Link href={r.href} className="bud-link" title={`Ver os gastos de ${r.name} em ${monthLabel}`}>
+                            {r.name}
+                          </Link>
                           <small className="bud-kind"> · {r.kind}</small>
                           {r.note && <small className="bud-note">{r.note}</small>}
                         </td>

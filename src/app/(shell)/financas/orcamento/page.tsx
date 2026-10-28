@@ -62,7 +62,7 @@ export default async function OrcamentoPage() {
       median: median(hist),
       spent,
       projected,
-      href: `/financas/extrato?mes=${current.key}&cat=${line.categories.length === 1 ? line.categories[0] : ""}`,
+      href: `/financas/extrato?mes=${current.key}&linha=${line.id}`,
     };
   });
 

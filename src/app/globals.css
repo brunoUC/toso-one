@@ -1126,3 +1126,8 @@ a.origin-tab:hover { border-color: var(--ink-2); }
   .cat-pick.field .cat-pop { left: 12px; right: 12px; width: auto; }
   .cat-pop-list { max-height: 45vh; }
 }
+.bud-row { position: relative; }
+.bud-row:hover td { background: var(--surface-2); }
+.bud-link::after { content: ""; position: absolute; inset: 0; } /* a linha toda abre o extrato */
+.bud-row input { position: relative; z-index: 1; }
+.chip.active { border-color: var(--accent); color: var(--ink-1); background: var(--accent-soft); }

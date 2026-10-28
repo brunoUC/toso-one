@@ -5,11 +5,12 @@ import { CATEGORIES, GROUPS, categoryOf } from "@/lib/fin-taxonomy";
 import { brlCents, dayLabel, getTxList, lastDay, METHOD_LABEL, monthName, shiftMonth, type LeanTx } from "@/lib/financas";
 import { CategoryPicker } from "@/components/fin/CategoryPicker";
 import { LiveSearch } from "@/components/fin/LiveSearch";
+import { BUDGET } from "@/lib/fin-budget";
 import { FinNav } from "../FinNav";
 
 export const metadata: Metadata = { title: "Extrato · Finanças" };
 
-type Search = { mes?: string; conta?: string; tipo?: string; cat?: string; q?: string; dir?: string };
+type Search = { mes?: string; conta?: string; tipo?: string; cat?: string; linha?: string; q?: string; dir?: string };
 
 const thisMonth = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 7);
 
@@ -18,6 +19,8 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const month = /^\d{4}-\d{2}$/.test(sp.mes ?? "") ? sp.mes! : thisMonth();
   const q = (sp.q ?? "").trim().toLowerCase();
+  // ?linha=<id>: as categorias de uma linha do orçamento.
+  const line = BUDGET.find((l) => l.id === sp.linha) ?? null;
   // Com busca, procura no último ano inteiro; sem, mostra o mês.
   const from = q ? `${shiftMonth(thisMonth(), -12)}-01` : `${month}-01`;
   const { rows, accounts, custom } = await getTxList(from, q ? lastDay(thisMonth()) : lastDay(month));
@@ -27,6 +30,7 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
     if (sp.tipo && t.method !== sp.tipo) return false;
     if (sp.dir === "saida" && t.amount >= 0) return false;
     if (sp.dir === "entrada" && t.amount < 0) return false;
+    if (line && !line.categories.includes(t.category)) return false;
     if (sp.cat) {
       const cat = categoryOf(t.category, custom);
       if (sp.cat.startsWith("grupo:") ? cat.group !== sp.cat.slice(6) : t.category !== sp.cat) return false;
@@ -87,6 +91,7 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
 
       <form className="card fin-filters" action="/financas/extrato">
         <input type="hidden" name="mes" value={month} />
+        {line && <input type="hidden" name="linha" value={line.id} />}
         <LiveSearch initial={sp.q ?? ""} />
         <select className="ed-input" name="conta" defaultValue={sp.conta ?? ""}>
           <option value="">Todas as contas</option>
@@ -127,12 +132,23 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
         <button className="btn btn-primary btn-sm" type="submit">
           Filtrar
         </button>
-        {(sp.q || sp.conta || sp.tipo || sp.cat || sp.dir) && (
+        {(sp.q || sp.conta || sp.tipo || sp.cat || sp.dir || line) && (
           <Link className="link-btn" href={`/financas/extrato?mes=${month}`}>
             Limpar
           </Link>
         )}
       </form>
+
+      {line && (
+        <div className="fin-chips">
+          <Link className="chip active" href={link({ linha: undefined })} aria-label="Tirar o filtro do orçamento">
+            Orçamento: {line.name} <b>×</b>
+          </Link>
+          <Link className="chip" href="/financas/orcamento">
+            ← voltar ao orçamento
+          </Link>
+        </div>
+      )}
 
       {topCats.length > 0 && (
         <div className="fin-chips">
