@@ -22,7 +22,10 @@ async function apiKey(): Promise<string> {
 
 async function get<T>(key: string, path: string): Promise<T> {
   const res = await fetch(`${API}${path}`, { headers: { "X-API-KEY": key } });
-  if (!res.ok) throw new Error(`GET ${path.split("?")[0]} → ${res.status}`);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string; code?: string };
+    throw new Error(`GET ${path.split("?")[0]} → ${res.status}${body.message ? `: ${body.message}` : ""}`);
+  }
   return (await res.json()) as T;
 }
 
@@ -42,14 +45,60 @@ type Tx = {
 };
 type Investment = { type?: string; subtype?: string };
 
+// Estrutura da resposta da v2 (só nomes de campos), para adaptar o código
+// sem ler dados pessoais.
+export const shape = internalAction({
+  args: { itemId: v.string(), dateFrom: v.string() },
+  handler: async (_ctx, { itemId, dateFrom }) => {
+    const key = await apiKey();
+    const accounts = (await get<Page<Account>>(key, `/accounts?itemId=${itemId}`)).results;
+    const out: Record<string, unknown> = {};
+    for (const acc of accounts.slice(0, 2)) {
+      const res = await fetch(`${API}/v2/transactions?accountId=${acc.id}&dateFrom=${dateFrom}`, { headers: { "X-API-KEY": key } });
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      const first = Array.isArray(body.results) ? (body.results[0] as Record<string, unknown> | undefined) : undefined;
+      out[`${acc.type}/${acc.subtype ?? ""}`] = {
+        status: res.status,
+        topKeys: Object.keys(body),
+        scalarTop: Object.fromEntries(Object.entries(body).filter(([, v]) => typeof v !== "object" || v === null).map(([k, v]) => [k, typeof v === "string" ? (v.length > 24 ? "…string" : v) : v])),
+        resultCount: Array.isArray(body.results) ? body.results.length : null,
+        firstResultKeys: first ? Object.keys(first) : null,
+        message: typeof body.message === "string" ? body.message : undefined,
+      };
+    }
+    return out;
+  },
+});
+
+// Descobre o nome do parâmetro de paginação da v2 (o "next" da resposta).
+export const cursorProbe = internalAction({
+  args: { itemId: v.string(), dateFrom: v.string() },
+  handler: async (_ctx, { itemId, dateFrom }) => {
+    const key = await apiKey();
+    const accounts = (await get<Page<Account>>(key, `/accounts?itemId=${itemId}`)).results;
+    for (const acc of accounts) {
+      const first = await get<{ results: unknown[]; next: string | null }>(key, `/v2/transactions?accountId=${acc.id}&dateFrom=${dateFrom}`);
+      if (!first.next) continue;
+      const tries: Record<string, string | number> = {};
+      for (const name of ["after", "next", "pageToken", "nextCursor", "startingAfter"]) {
+        const res = await fetch(`${API}/v2/transactions?accountId=${acc.id}&dateFrom=${dateFrom}&${name}=${encodeURIComponent(first.next)}`, { headers: { "X-API-KEY": key } });
+        const body = (await res.json().catch(() => ({}))) as { message?: string; results?: unknown[] };
+        tries[name] = res.ok ? `ok ${body.results?.length ?? 0}` : `${res.status} ${body.message ?? ""}`;
+      }
+      return { account: `${acc.type}/${acc.subtype}`, firstPage: first.results.length, nextLooksLike: first.next.startsWith("http") ? "url" : `token(${first.next.length})`, tries };
+    }
+    return "nenhuma conta com segunda página";
+  },
+});
+
 const pct = (n: number, d: number) => (d ? `${Math.round((n / d) * 100)}%` : "—");
 
 // Diagnóstico dos dados reais, SEM devolver valores, nomes ou descrições:
 // só contagens e quanto de cada campo veio preenchido. Serve para decidir o
 // que dá para construir antes de construir.
 export const probe = internalAction({
-  args: { itemIds: v.array(v.string()) },
-  handler: async (_ctx, { itemIds }) => {
+  args: { itemIds: v.array(v.string()), dateFrom: v.string() },
+  handler: async (_ctx, { itemIds, dateFrom }) => {
     const key = await apiKey();
     const out = [];
     for (const itemId of itemIds) {
@@ -58,8 +107,21 @@ export const probe = internalAction({
         const accounts = (await get<Page<Account>>(key, `/accounts?itemId=${itemId}`)).results;
         const accSummary = [];
         for (const acc of accounts) {
-          const page = await get<Page<Tx>>(key, `/transactions?accountId=${acc.id}&pageSize=500`);
-          const txs = page.results;
+          // v2: paginação por cursor; o "next" da resposta é colado no fim do
+          // caminho (GET /v2/transactions{next}). O histórico vem desde dateFrom.
+          const txs: Tx[] = [];
+          let next: string | null = null;
+          for (let guard = 0; guard < 200; guard++) {
+            const path: string = next
+              ? next.startsWith("http") ? next.replace(API, "") : `/v2/transactions${next}`
+              : `/v2/transactions?accountId=${acc.id}&dateFrom=${dateFrom}`;
+            const page: { results: (Tx & { date?: string })[]; next: string | null } = await get(key, path);
+            txs.push(...page.results);
+            next = page.next;
+            if (!next) break;
+          }
+          const dates = (txs as { date?: string }[]).map((t) => t.date ?? "").filter(Boolean).sort();
+          const page = { total: txs.length };
           const has = (f: (t: Tx) => unknown) => txs.filter((t) => Boolean(f(t))).length;
           const methods: Record<string, number> = {};
           for (const t of txs) {
@@ -69,8 +131,9 @@ export const probe = internalAction({
           accSummary.push({
             type: acc.type,
             subtype: acc.subtype ?? null,
-            transactionsInFirstPage: txs.length,
-            totalTransactions: page.total ?? null,
+            transactions: page.total,
+            oldest: dates[0]?.slice(0, 10) ?? null,
+            newest: dates[dates.length - 1]?.slice(0, 10) ?? null,
             withDescription: pct(has((t) => t.description), txs.length),
             withPaymentData: pct(has((t) => t.paymentData), txs.length),
             withPayerOrReceiver: pct(has((t) => t.paymentData?.payer || t.paymentData?.receiver), txs.length),
