@@ -14,7 +14,7 @@ export type FlightRoute = {
   verdict: Verdict;
   nDays: number;
   stats: { min: number; p25: number; median: number; max: number } | null;
-  best: (Fare & { asOf: string }) | null;
+  best: (Fare & { asOf: string; out?: Leg }) | null;
   series: { day: string; price: number }[];
   fares: (Fare & { seenOn: string; options: number | null })[];
   searchUrl: string;
@@ -23,8 +23,28 @@ export type FlightRoute = {
   coverage?: { seen: number; total: number };
 };
 
-// Uma tarifa vista: par (ida, volta) com o itinerário mais barato. Horários,
-// chegada e avaliação do Google só existem nas coletas a partir de 27/10/2026.
+// Um voo de um trecho: número, aeroportos e horários locais (AAAA-MM-DDTHH:MM).
+export type FlightSeg = { no: string; from: string; to: string; dep: string; arr: string };
+
+// Um trecho inteiro (ida ou volta), com as conexões.
+export type Leg = {
+  airline: string | null;
+  stops: number | null;
+  duration: string | null;
+  departTime: string | null;
+  arriveTime: string | null;
+  arriveAhead: number;
+  from: string;
+  to: string;
+  flights: FlightSeg[];
+};
+
+// Um itinerário de ida e volta com preço total, de uma fonte.
+export type Trip = { price: number; source: string; out: Leg; back: Leg };
+
+// Uma tarifa vista: par (ida, volta) com o itinerário mais barato. Os campos
+// soltos (airline, departTime…) são da ida. A volta detalhada (`back`) existe
+// desde as coletas de 28/10/2026, quando o par foi detalhado.
 export type Fare = {
   price: number;
   departDate: string;
@@ -37,6 +57,19 @@ export type Fare = {
   arriveAhead: number;
   googleLevel: "baixo" | "típico" | "alto" | null;
   bookingUrl: string;
+  out?: Leg | null;
+  back?: Leg | null;
+  // Preço de cada fonte para o par ({ google: 13885, ignav: 13700 }).
+  sources?: Record<string, number>;
+};
+
+// docs/r/<id>.json: a grade inteira de datas de uma rota.
+export type RouteGrid = {
+  id: string;
+  generatedAt: string;
+  window: [string, string];
+  stay: [number, number];
+  fares: (Fare & { seenOn: string })[];
 };
 
 export type FlightData = {
@@ -48,6 +81,7 @@ export type FlightData = {
   hero: { state: "deal" | "stale" | "nothing" | "waiting"; routeId: string | null };
   lastRun: { started_at: string; ok: number; failed: number; expired: string[] } | null;
   routes: FlightRoute[];
+  sources?: string[];
 };
 
 // Produção do Flight Tracker na Vercel. Não é segredo; FLIGHTS_URL sobrescreve.
@@ -114,6 +148,17 @@ export function tripText(best: Pick<Fare, "departDate" | "returnDate">): string 
 
 export function detailsText(best: Pick<Fare, "airline" | "stops" | "duration">): string {
   return [best.airline ?? "companhia não informada", stopsText(best.stops), best.duration].filter(Boolean).join(" · ");
+}
+
+export async function fetchRouteGrid(id: string): Promise<RouteGrid | null> {
+  const base = flightsUrl();
+  if (!base || !/^[A-Z]{3}-[A-Z]{3}$/.test(id)) return null;
+  try {
+    const res = await fetch(`${base}/r/${id}.json`, { next: { revalidate: 600 } });
+    return res.ok ? ((await res.json()) as RouteGrid) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchRoute(id: string): Promise<{ data: FlightData | null; route: FlightRoute | null; error: string | null }> {

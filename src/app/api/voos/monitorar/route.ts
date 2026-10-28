@@ -37,6 +37,7 @@ export async function POST(request: Request) {
   if (days > 90) return NextResponse.json({ error: "Viagens de até 90 dias." }, { status: 400 });
 
   const id = `${origin}-${destination}`;
+  const DEFAULT_STAY = [8, 12] as const;
   const br = (iso: string) => iso.split("-").reverse().join("/");
   try {
     const { config, sha } = await readRoutes();
@@ -45,7 +46,9 @@ export async function POST(request: Request) {
     let summary: string;
     if (existing) {
       const window: [string, string] = [existing.window[0] < depart ? existing.window[0] : depart, existing.window[1] > depart ? existing.window[1] : depart];
-      const stay: [number, number] = [Math.min(existing.stay[0], days), Math.max(existing.stay[1], days)];
+      // A grade fica em 8 a 12 dias; um par fora disso ainda é detalhado
+      // na coleta (vai em `pairs`), só não abre colunas novas na grade.
+      const stay: [number, number] = [existing.stay[0], existing.stay[1]];
       // Uma janela que já tinha acabado recomeça perto das datas pesquisadas.
       if (existing.window[1] < tomorrow) window[0] = addDaysISO(depart, -3) < tomorrow ? tomorrow : addDaysISO(depart, -3);
       if (window[1] <= window[0]) window[1] = addDaysISO(window[0], 1);
@@ -61,7 +64,7 @@ export async function POST(request: Request) {
         destination,
         city: airportCity(destination),
         window: [start, addDaysISO(depart, 3)],
-        stay: [Math.max(1, days - 2), days + 2],
+        stay: [...DEFAULT_STAY],
         active: true,
       };
       config.routes = [...config.routes, route];

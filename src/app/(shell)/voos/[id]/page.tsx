@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FareExplorer } from "@/components/flights/FareExplorer";
+import { DateGrid } from "@/components/flights/DateGrid";
+import { LegView } from "@/components/flights/LegView";
 import { PriceHistory } from "@/components/flights/PriceHistory";
 import { Icon } from "@/components/Icon";
 import airports from "@/data/airports.json";
 import { countryName, type Airport } from "@/lib/airports";
 import { getSession } from "@/lib/auth";
-import { fetchRoute, fmtDayLong, stayDays, stopsText, type FlightRoute } from "@/lib/flights";
+import { fetchRoute, fetchRouteGrid, stayDays, type FlightRoute } from "@/lib/flights";
 import { brl } from "@/lib/format";
 
 const BY_CODE = new Map((airports as Airport[]).map((a) => [a.i, a]));
@@ -35,42 +36,23 @@ function Ticket({ route }: { route: FlightRoute }) {
           ida e volta, executiva, 1 adulto · {route.verdict.why}
         </p>
 
-        <div className="leg">
-          <span className="leg-k">ida</span>
-          <div className="leg-date">{fmtDayLong(b.departDate)}</div>
-          <div className="leg-line">
-            <div className="leg-end">
-              <b>{b.departTime ?? route.origin}</b>
-              <span>{b.departTime ? `${route.origin} · ${o?.c ?? ""}` : o?.c}</span>
-            </div>
-            <div className="leg-path">
-              <span>{b.duration ?? ""}</span>
-              <i />
-              <span>{stopsText(b.stops) ?? ""}</span>
-            </div>
-            <div className="leg-end right">
-              <b>
-                {b.arriveTime ?? route.destination}
-                {b.arriveTime && b.arriveAhead ? <sup>+{b.arriveAhead}</sup> : null}
-              </b>
-              <span>{b.arriveTime ? `${route.destination} · ${d?.c ?? route.city}` : d?.c ?? route.city}</span>
-            </div>
-          </div>
-          <div className="leg-meta">
-            {b.airline ?? "companhia não informada"}
-            {!b.departTime && " · horários aparecem a partir das próximas coletas"}
-          </div>
-        </div>
-
+        <LegView
+          kind="ida"
+          date={b.departDate}
+          leg={b.out ?? (b.departTime ? { ...b, from: route.origin, to: route.destination, flights: [] } : null)}
+          fromLabel={o?.c}
+          toLabel={d?.c ?? route.city}
+          note={`${route.origin} → ${route.destination} · ${b.airline ?? "companhia não informada"}`}
+        />
         {b.returnDate && (
-          <div className="leg">
-            <span className="leg-k">volta</span>
-            <div className="leg-date">{fmtDayLong(b.returnDate)}</div>
-            <div className="leg-meta">
-              {days} dias depois · {route.destination} → {route.origin}. O Google só mostra os voos de volta depois que você escolhe a
-              ida: o botão abaixo abre essa busca já com as duas datas.
-            </div>
-          </div>
+          <LegView
+            kind="volta"
+            date={b.returnDate}
+            leg={b.back}
+            fromLabel={d?.c ?? route.city}
+            toLabel={o?.c}
+            note={`${days} dias depois · ${route.destination} → ${route.origin}. Os voos da volta aparecem na grade abaixo depois da próxima coleta.`}
+          />
         )}
       </div>
       <div className="ticket-actions">
@@ -87,7 +69,7 @@ function Ticket({ route }: { route: FlightRoute }) {
 
 export default async function RouteDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [{ data, route, error }, session] = await Promise.all([fetchRoute(id), getSession()]);
+  const [{ data, route, error }, session, grid] = await Promise.all([fetchRoute(id), getSession(), fetchRouteGrid(id)]);
   if (!data) {
     return (
       <main className="page">
@@ -99,6 +81,9 @@ export default async function RouteDetail({ params }: { params: Promise<{ id: st
 
   const o = BY_CODE.get(route.origin);
   const d = BY_CODE.get(route.destination);
+  const fares = grid?.fares ?? route.fares;
+  // Outras origens para a mesma cidade: a página troca de origem sem voltar.
+  const siblings = data.routes.filter((r) => r.id !== route.id && (r.destination === route.destination || (route.city && r.city === route.city)));
 
   return (
     <main className="page">
@@ -126,6 +111,21 @@ export default async function RouteDetail({ params }: { params: Promise<{ id: st
           </Link>
         </div>
       </div>
+
+      {siblings.length > 0 && (
+        <nav className="origin-tabs" aria-label={`Origens para ${route.city || d?.c}`}>
+          <span className="fx-muted">saindo de</span>
+          <span className="origin-tab on" aria-current="page">
+            <b>{route.origin}</b> {route.best ? brl(route.best.price) : "—"}
+          </span>
+          {siblings.map((r) => (
+            <Link key={r.id} className="origin-tab" href={`/voos/${r.id}`}>
+              <b>{r.origin}</b>
+              {r.destination !== route.destination ? <span className="mono">→{r.destination}</span> : null} {r.best ? brl(r.best.price) : "—"}
+            </Link>
+          ))}
+        </nav>
+      )}
 
       {route.best ? (
         <Ticket route={route} />
@@ -182,21 +182,26 @@ export default async function RouteDetail({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {route.fares.length > 0 && (
+      {fares.length > 0 && (
         <section className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">
-            <h3>Preço por data</h3>
+            <h3>Todas as datas de ida e volta</h3>
           </div>
           <p className="card-sub">
-            Cada dia mostra o menor preço visto com ida naquela data. Escolha um dia para ver as voltas e o preço de cada uma.
+            Preço total de ida e volta em executiva para cada dia de ida (linhas) e cada duração de viagem (colunas), como a grade de
+            datas do Google Flights. Escolha um preço para ver os voos da ida e da volta.
           </p>
-          <FareExplorer
-            fares={route.fares}
+          <DateGrid
+            fares={fares}
             window={route.window}
-            initialDay={route.best?.departDate ?? route.fares[0]?.departDate ?? null}
+            stay={route.stay}
             origin={route.origin}
             destination={route.destination}
-            target={route.targets.buy}
+            originCity={o?.c ?? route.origin}
+            destinationCity={d?.c ?? route.city}
+            targets={route.targets}
+            initial={route.best?.returnDate ? { depart: route.best.departDate, ret: route.best.returnDate } : null}
+            signedIn={Boolean(session)}
           />
         </section>
       )}

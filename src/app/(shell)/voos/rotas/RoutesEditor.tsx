@@ -86,7 +86,7 @@ export function RoutesEditor({
   const [newOrigins, setNewOrigins] = useState<Airport[]>([]);
   const [newDests, setNewDests] = useState<Airport[]>([]);
   const [newWindow, setNewWindow] = useState<[string, string]>(() => saved.routes[0]?.window ?? nextMonthWindow());
-  const [newStay, setNewStay] = useState<[number, number]>(() => saved.routes[0]?.stay ?? [12, 16]);
+  const [newStay, setNewStay] = useState<[number, number]>(() => saved.routes[0]?.stay ?? [8, 12]);
 
   // Lote
   const [bulkWindow, setBulkWindow] = useState<[string, string]>(["", ""]);

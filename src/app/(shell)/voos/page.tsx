@@ -52,7 +52,7 @@ function OriginRow({ route, showDest }: { route: FlightRoute; showDest: boolean 
           {showDest && <span className="mono"> → {route.destination}</span>}
         </span>
         <span className="orow-trip">
-          {b ? `${fmtDay(b.departDate)}${b.returnDate ? ` · ${stayDays(b)} dias` : ""}` : "sem preço ainda"}
+          {b ? `${fmtDay(b.departDate)}${b.returnDate ? ` → ${fmtDay(b.returnDate)} · ${stayDays(b)}d` : ""}` : "sem preço ainda"}
         </span>
         <span className="orow-price">
           {b ? <b>{brl(b.price)}</b> : <span className="sr-only">{STATUS_LABEL.none}</span>}
@@ -87,7 +87,7 @@ function DestinationCard({ g, canEdit }: { g: DestinationGroup; canEdit: boolean
             <span>
               de <b className="mono">{g.best.origin}</b>
               {multiAirport ? <> para <b className="mono">{g.best.destination}</b></> : null} · ida {fmtDay(b.departDate)}
-              {b.returnDate ? `, ${stayDays(b)} dias` : ""}
+              {b.returnDate ? `, volta ${fmtDay(b.returnDate)} (${stayDays(b)} dias)` : ""}
             </span>
           </div>
           <p className="dest-dist" style={{ color: COLOR[g.status] }}>
@@ -116,7 +116,7 @@ function DestinationCard({ g, canEdit }: { g: DestinationGroup; canEdit: boolean
       )}
       {g.coverage && g.coverage.total > 0 && (
         <p className="dest-cov">
-          {g.coverage.seen} de {g.coverage.total} combinações de ida e volta já consultadas
+          {g.coverage.seen} de {g.coverage.total} combinações de ida e volta com preço
         </p>
       )}
     </article>
@@ -259,8 +259,9 @@ export default async function VoosPage() {
               da rota mais barata (padrão {brl(data.targets.buy)} e {brl(data.targets.max)}).
             </p>
             <p>
-              Ajustar as datas de um destino vale para todas as origens dele e já dispara uma coleta só dessas rotas, priorizando as
-              combinações de ida e volta que ainda não foram consultadas.
+              A coleta diária lê a grade inteira de cada rota (todas as idas da janela, ficando de 8 a 12 dias) e detalha os voos de
+              ida e volta das datas mais baratas. Ajustar as datas de um destino vale para todas as origens dele e já dispara uma coleta
+              só dessas rotas.
             </p>
             {data.lastRun && (
               <p>
