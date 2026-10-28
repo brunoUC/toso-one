@@ -34,6 +34,7 @@ async function buildOverview(ctx: GenericQueryCtx<GenericDataModel>) {
     const snapshots = (await ctx.db.query("finNetWorth").withIndex("by_date").collect()) as unknown as Snapshot[];
     const custom = (await ctx.db.query("finCategories").collect()) as unknown as Custom[];
     const goals = await ctx.db.query("finGoals").collect();
+    const budget = (await ctx.db.query("finBudget").collect()).map((b) => ({ lineId: b.lineId as string, limit: b.limit as number }));
     const rulesCount = (await ctx.db.query("finRules").collect()).length;
     const from = new Date(Date.UTC(Number(now.slice(0, 4)) - 1, Number(now.slice(5, 7)) - 2, 1)).toISOString().slice(0, 10);
     const txs = (await ctx.db.query("finTx").withIndex("by_date", (q) => q.gte("date", from)).collect()).map(lean);
@@ -122,6 +123,7 @@ async function buildOverview(ctx: GenericQueryCtx<GenericDataModel>) {
       insights: insights(months, rec, unclassified, { balance: invBalance, profit: invProfit }),
       custom,
       goals: goalsOut,
+      budget,
       rulesCount,
       txCount: txs.length,
     };
@@ -319,7 +321,7 @@ export const addCategory = mutation({
     const slug = "u-" + norm(clean).toLowerCase().replace(/\s+/g, "-");
     const existing = await ctx.db.query("finCategories").withIndex("by_slug", (q) => q.eq("slug", slug)).unique();
     if (existing) return slug;
-    const kind = group === "Receitas" ? "income" : group === "Movimentações internas" ? "internal" : "expense";
+    const kind = group === "Receitas" ? "income" : group === "Movimentações internas" ? "internal" : group === "Empresa (stemOS)" ? "business" : "expense";
     await ctx.db.insert("finCategories", { slug, name: clean, group, kind });
     return slug;
   },
@@ -352,5 +354,18 @@ export const deleteGoal = mutation({
     assertServer(secret);
     const docId = ctx.db.normalizeId("finGoals", id);
     if (docId) await ctx.db.delete(docId);
+  },
+});
+
+export const setBudgetLimit = mutation({
+  args: { secret: v.string(), lineId: v.string(), limit: v.union(v.number(), v.null()) },
+  handler: async (ctx, { secret, lineId, limit }) => {
+    assertServer(secret);
+    const row = await ctx.db.query("finBudget").withIndex("by_lineId", (q) => q.eq("lineId", lineId)).unique();
+    // null volta ao limite padrão do plano.
+    if (limit === null || !(limit >= 0)) {
+      if (row) await ctx.db.delete(row._id);
+    } else if (row) await ctx.db.patch(row._id, { limit });
+    else await ctx.db.insert("finBudget", { lineId, limit });
   },
 });

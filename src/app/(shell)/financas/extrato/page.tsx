@@ -171,7 +171,7 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
                               {t.status === "PENDING" ? " · pendente" : ""}
                             </small>
                           </span>
-                          <span className={`tx-cat${t.category === "a-classificar" ? " warn" : ""}${cat.kind === "internal" ? " muted" : ""}`}>{cat.name}</span>
+                          <span className={`tx-cat${t.category === "a-classificar" ? " warn" : ""}${cat.kind === "internal" || cat.kind === "business" ? " muted" : ""}`}>{cat.name}</span>
                           <span className={`tx-amt ${t.amount < 0 ? "" : "up"}`}>{brlCents(t.amount)}</span>
                         </Link>
                       </li>

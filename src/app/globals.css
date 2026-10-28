@@ -1065,3 +1065,24 @@ a.origin-tab:hover { border-color: var(--ink-2); }
   .fin-editor .pair2, .fin-goal-form .pair2 { grid-template-columns: 1fr; }
 }
 .fin-mini td:not(:first-child), .fin-mini th:not(:first-child) { white-space: nowrap; }
+
+/* Orçamento */
+.bud-wrap { overflow-x: auto; margin: 0 -4px; }
+.bud { min-width: 760px; }
+.bud td { vertical-align: top; padding-top: 9px; padding-bottom: 9px; }
+.bud td:first-child { max-width: 360px; }
+.bud td a { text-decoration: none; color: var(--ink-1); font-weight: 500; }
+.bud td a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.bud td b { font-weight: 500; }
+.bud .bud-kind { color: var(--ink-3); }
+.bud .bud-note { display: block; color: var(--ink-3); font-size: 11.5px; line-height: 1.45; margin-top: 3px; text-align: left; white-space: normal; }
+.bud td:not(:first-child) { white-space: nowrap; }
+.bud-section td { background: var(--surface-2); font-weight: 500; color: var(--ink-2); font-size: 12px; }
+.bud-total td { font-weight: 600; border-top: 1px solid var(--hairline-strong); border-bottom: 0; }
+.bud-bar-h, .bud-bar-c { width: 200px; }
+.bud-bar-c { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+.bud-bar { position: relative; flex: 1; height: 8px; border-radius: 4px; background: var(--s1-track); min-width: 90px; }
+.bud-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--s1); }
+.bud-bar i.over { background: var(--down); }
+.bud-bar em { position: absolute; top: -3px; width: 2px; height: 14px; border-radius: 1px; background: var(--ink-2); box-shadow: 0 0 0 2px var(--surface-1); }
+.bud-spent { min-width: 72px; text-align: right; font-variant-numeric: tabular-nums; }

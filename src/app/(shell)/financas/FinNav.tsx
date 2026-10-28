@@ -2,6 +2,7 @@ import Link from "next/link";
 
 const TABS = [
   { href: "/financas", label: "Painel" },
+  { href: "/financas/orcamento", label: "Orçamento" },
   { href: "/financas/extrato", label: "Extrato" },
   { href: "/financas/regras", label: "Categorias e regras" },
 ];

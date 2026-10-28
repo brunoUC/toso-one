@@ -74,6 +74,7 @@ export type Overview = {
   insights: Insight[];
   custom: Custom[];
   goals: FinGoal[];
+  budget: { lineId: string; limit: number }[];
   rulesCount: number;
   txCount: number;
 };

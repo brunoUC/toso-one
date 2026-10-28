@@ -32,6 +32,7 @@ export type MonthAgg = {
   partial: boolean;
   income: number;
   expense: number;
+  business: number; // stemOS pelo cartão pessoal, fora dos gastos
   byCategory: Record<string, number>; // gasto líquido (estornos abatem)
   byGroup: Record<string, number>;
   incomeByCategory: Record<string, number>;
@@ -64,7 +65,7 @@ export function monthly(txs: LeanTx[], custom: Custom[], today: string, n = 13):
   const map = new Map<string, MonthAgg>(
     keys.map((key) => [
       key,
-      { key, label: monthLabel(key), partial: key === today.slice(0, 7), income: 0, expense: 0, byCategory: {}, byGroup: {}, incomeByCategory: {} },
+      { key, label: monthLabel(key), partial: key === today.slice(0, 7), income: 0, expense: 0, business: 0, byCategory: {}, byGroup: {}, incomeByCategory: {} },
     ]),
   );
   for (const t of txs) {
@@ -76,6 +77,8 @@ export function monthly(txs: LeanTx[], custom: Custom[], today: string, n = 13):
       m.expense += spend;
       m.byCategory[cat.slug] = (m.byCategory[cat.slug] ?? 0) + spend;
       m.byGroup[cat.group] = (m.byGroup[cat.group] ?? 0) + spend;
+    } else if (cat.kind === "business") {
+      m.business -= t.amount;
     } else if (cat.kind === "income") {
       m.income += t.amount;
       m.incomeByCategory[cat.slug] = (m.incomeByCategory[cat.slug] ?? 0) + t.amount;

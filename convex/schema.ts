@@ -145,6 +145,10 @@ export default defineSchema({
     kind: v.string(),
   }).index("by_slug", ["slug"]),
 
+  // Limite mensal de cada linha do orçamento (src/lib/fin-budget.ts) que ele
+  // mudou na página; sem linha aqui vale o limite padrão do arquivo.
+  finBudget: defineTable({ lineId: v.string(), limit: v.number() }).index("by_lineId", ["lineId"]),
+
   finGoals: defineTable({
     name: v.string(),
     target: v.number(),
