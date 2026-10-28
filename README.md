@@ -5,7 +5,7 @@ Hub pessoal de ferramentas. Hoje tem dois apps:
 | App | Acesso | O que é |
 |---|---|---|
 | **Voos** | aberto (editor privado) | Tarifas do [Flight Tracker](https://github.com/brunoUC/Flight_Tracker), com datas, link de compra e editor de rotas |
-| **Finanças** | privado | Patrimônio, metas e carteira. Por enquanto com **dados de exemplo** |
+| **Finanças** | privado | Patrimônio, extrato de todos os bancos, gastos por categoria, metas e investimentos, via Open Finance |
 
 Next.js 16 + Convex. Login com **Face ID / Touch ID (passkey)** e senha de reserva.
 
@@ -142,6 +142,35 @@ o destino de uma rota começa um histórico novo (o antigo fica guardado).
 O Google só mostra os voos de volta depois que se escolhe a ida, então a
 coleta conhece o horário da ida, e da volta só a data. O link de cada
 tarifa abre a busca com as duas datas.
+
+## Finanças
+
+Os dados vêm do Open Finance pela [Meu Pluggy](https://meu.pluggy.ai)
+(gratuito). Nenhuma senha de banco passa por aqui: os bancos foram
+conectados no Meu Pluggy, com consentimento de 12 meses, e o Convex lê pela
+API da Pluggy com `PLUGGY_CLIENT_ID` / `PLUGGY_CLIENT_SECRET` (só nas
+variáveis de ambiente do Convex).
+
+- **Leitura** (`convex/financas/sync.ts`): duas vezes por dia (06:17 e
+  18:17, `convex/crons.ts`) e no botão "Atualizar". Na primeira vez de cada
+  banco busca o último ano; depois, os últimos 15 dias. Guarda contas,
+  movimentações (com o JSON completo da Pluggy à parte), investimentos e
+  uma fotografia diária do patrimônio.
+- **Classificação** (`convex/financas/taxonomy.ts`), nesta ordem: regras
+  suas → PIX/TED entre suas contas (CPF ou nome do titular) → nomes
+  conhecidos → tipo de estabelecimento (MCC) → categoria do banco → Claude
+  Haiku (`convex/financas/ai.ts`, só com `ANTHROPIC_API_KEY` no Convex).
+  Corrigir uma movimentação com "sempre que for…" cria uma regra pela
+  pessoa, loja ou descrição e reclassifica o passado na hora.
+- **Gastos** contam cartão, PIX, boleto e débito. Pagamento de fatura,
+  aplicação, resgate e transferência entre suas contas ficam de fora, para
+  não contar a mesma compra duas vezes.
+- **Telas**: `/financas` (painel), `/financas/extrato` (todos os bancos,
+  com filtros), `/financas/m/<id>` (detalhe e tudo o que o banco mandou),
+  `/financas/regras`.
+
+Conectar outro banco: conecte no Meu Pluggy e rode
+`npx convex run --prod financas/sync:addItems '{"itemIds":["<id>"]}'`.
 
 ## Adicionar um app
 

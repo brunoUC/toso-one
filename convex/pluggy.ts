@@ -1,33 +1,9 @@
 import { internalActionGeneric as internalAction } from "convex/server";
 import { v } from "convex/values";
+import { API, apiKey, get } from "./financas/pluggyClient";
 
-// Integração com a Pluggy (Open Finance). As chaves ficam só nas variáveis de
-// ambiente do Convex (PLUGGY_CLIENT_ID / PLUGGY_CLIENT_SECRET): nunca passam
-// pelo Next nem pelo navegador.
-
-const API = "https://api.pluggy.ai";
-
-async function apiKey(): Promise<string> {
-  const clientId = process.env.PLUGGY_CLIENT_ID;
-  const clientSecret = process.env.PLUGGY_CLIENT_SECRET;
-  if (!clientId || !clientSecret) throw new Error("Faltam PLUGGY_CLIENT_ID e PLUGGY_CLIENT_SECRET no Convex.");
-  const res = await fetch(`${API}/auth`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, clientSecret }),
-  });
-  if (!res.ok) throw new Error(`Pluggy recusou as chaves (${res.status}).`);
-  return ((await res.json()) as { apiKey: string }).apiKey;
-}
-
-async function get<T>(key: string, path: string): Promise<T> {
-  const res = await fetch(`${API}${path}`, { headers: { "X-API-KEY": key } });
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { message?: string; code?: string };
-    throw new Error(`GET ${path.split("?")[0]} → ${res.status}${body.message ? `: ${body.message}` : ""}`);
-  }
-  return (await res.json()) as T;
-}
+// Diagnósticos da Pluggy (só contagens e nomes de campos). A sincronização
+// de verdade está em financas/sync.ts.
 
 type Page<T> = { results: T[]; total?: number; totalPages?: number };
 type Item = { id: string; status: string; executionStatus?: string; lastUpdatedAt?: string; connector?: { id: number; name: string; isOpenFinance?: boolean }; consentExpiresAt?: string };

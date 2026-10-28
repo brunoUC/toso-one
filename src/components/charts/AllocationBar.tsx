@@ -1,6 +1,6 @@
 import { compact } from "@/lib/format";
 
-type Slice = { name: string; slot: number; pct: number; target: number };
+type Slice = { name: string; slot: number; pct: number; target?: number; value?: number };
 
 // Parte-do-todo numa barra empilhada (gap de 2px entre fatias) + lista com
 // valor e desvio do alvo. Desvio de 3 pp ou mais ganha destaque.
@@ -14,7 +14,7 @@ export function AllocationBar({ slices, total }: { slices: Slice[]; total: numbe
       </div>
       <ul className="alloc-list">
         {slices.map((s) => {
-          const diff = s.pct - s.target;
+          const diff = s.target === undefined ? null : s.pct - s.target;
           return (
             <li key={s.name}>
               <span className="nm">
@@ -22,11 +22,15 @@ export function AllocationBar({ slices, total }: { slices: Slice[]; total: numbe
                 {s.name}
               </span>
               <span className="pct">
-                {s.pct}% · {compact((total * s.pct) / 100)}
+                {s.pct}% · {compact(s.value ?? (total * s.pct) / 100)}
               </span>
-              <span className="vs" style={Math.abs(diff) >= 3 ? { color: "var(--sand)" } : undefined}>
-                {diff === 0 ? "no alvo" : `${diff > 0 ? "+" : "−"}${Math.abs(diff)} pp`}
-              </span>
+              {diff !== null ? (
+                <span className="vs" style={Math.abs(diff) >= 3 ? { color: "var(--sand)" } : undefined}>
+                  {diff === 0 ? "no alvo" : `${diff > 0 ? "+" : "−"}${Math.abs(diff)} pp`}
+                </span>
+              ) : (
+                <span className="vs" />
+              )}
             </li>
           );
         })}

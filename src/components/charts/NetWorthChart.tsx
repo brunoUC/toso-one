@@ -5,7 +5,14 @@ import { brl, compact } from "@/lib/format";
 import { Tooltip, type TipState } from "./Tooltip";
 import { useWidth } from "./useWidth";
 
-type Point = { label: string; netWorth: number; invested: number };
+type Point = { label: string; netWorth: number; invested?: number; estimated?: boolean };
+
+// Passo "redondo" (1, 2 ou 5 × 10ⁿ) para umas 4 linhas de grade.
+function niceStep(range: number): number {
+  const raw = Math.max(range, 1) / 4;
+  const p = 10 ** Math.floor(Math.log10(raw));
+  return [1, 2, 5, 10].map((m) => m * p).find((s) => s >= raw) ?? 10 * p;
+}
 
 // Patrimônio (série principal, com área) contra total aportado (tinta de
 // apoio). Um eixo só; rótulos diretos no fim; crosshair que encaixa no mês.
@@ -17,13 +24,19 @@ export function NetWorthChart({ data }: { data: Point[] }) {
 
   const H = 260;
   const P = { t: 12, r: 64, b: 26, l: 52 };
-  const lo = Math.min(...data.map((d) => d.invested)) * 0.94;
-  const hi = Math.max(...data.map((d) => d.netWorth)) * 1.03;
-  const step = hi - lo > 400_000 ? 200_000 : 100_000;
+  // A segunda linha (aportado) é opcional; pontos estimados vêm marcados.
+  const hasSecond = data.every((d) => d.invested !== undefined);
+  const values = data.flatMap((d) => (hasSecond ? [d.netWorth, d.invested!] : [d.netWorth]));
+  const lo0 = Math.min(...values);
+  const hi0 = Math.max(...values);
+  const pad = (hi0 - lo0 || Math.abs(hi0) || 1) * 0.06;
+  const lo = lo0 - pad;
+  const hi = hi0 + pad;
+  const step = niceStep(hi - lo);
   const y0 = Math.floor(lo / step) * step;
   const x = (i: number) => P.l + (i / Math.max(1, data.length - 1)) * (W - P.l - P.r);
   const y = (v: number) => P.t + (1 - (v - y0) / (hi - y0)) * (H - P.t - P.b);
-  const line = (k: "netWorth" | "invested") => data.map((d, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(d[k]).toFixed(1)}`).join("");
+  const line = (k: "netWorth" | "invested") => data.map((d, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(d[k] ?? 0).toFixed(1)}`).join("");
 
   const ticks: number[] = [];
   for (let v = y0; v <= hi; v += step) ticks.push(v);
@@ -39,12 +52,14 @@ export function NetWorthChart({ data }: { data: Point[] }) {
     setTip({
       x: x(i),
       y: y(d.netWorth) - 8,
-      title: d.label,
-      rows: [
-        { name: "Patrimônio", color: "var(--s1)", value: brl(d.netWorth) },
-        { name: "Aportado", color: "var(--ink-3)", value: brl(d.invested) },
-        { name: "Rendeu", color: "transparent", value: brl(d.netWorth - d.invested) },
-      ],
+      title: d.estimated ? `${d.label} · estimativa` : d.label,
+      rows: hasSecond
+        ? [
+            { name: "Patrimônio", color: "var(--s1)", value: brl(d.netWorth) },
+            { name: "Aportado", color: "var(--ink-3)", value: brl(d.invested!) },
+            { name: "Rendeu", color: "transparent", value: brl(d.netWorth - d.invested!) },
+          ]
+        : [{ name: "Patrimônio", color: "var(--s1)", value: brl(d.netWorth) }],
     });
   }
 
@@ -73,16 +88,18 @@ export function NetWorthChart({ data }: { data: Point[] }) {
           ),
         )}
         <path d={`${line("netWorth")}L${x(last)} ${H - P.b}L${x(0)} ${H - P.b}Z`} fill={`url(#${gradId})`} />
-        <path d={line("invested")} style={{ fill: "none", stroke: "var(--ink-3)", strokeWidth: 1.5, strokeLinejoin: "round" }} />
+        {hasSecond && <path d={line("invested")} style={{ fill: "none", stroke: "var(--ink-3)", strokeWidth: 1.5, strokeLinejoin: "round" }} />}
         <path d={line("netWorth")} style={{ fill: "none", stroke: "var(--s1)", strokeWidth: 2, strokeLinejoin: "round", strokeLinecap: "round" }} />
 
         <circle cx={x(last)} cy={y(data[last].netWorth)} r={4} style={{ fill: "var(--s1)", stroke: "var(--surface-1)", strokeWidth: 2 }} />
         <text x={x(last) + 10} y={y(data[last].netWorth) + 4} style={{ fill: "var(--ink-1)", fontSize: 12, fontWeight: 500 }}>
           {compact(data[last].netWorth)}
         </text>
-        <text x={x(last) + 10} y={y(data[last].invested) + 4} style={{ fill: "var(--ink-3)", fontSize: 12 }}>
-          {compact(data[last].invested)}
-        </text>
+        {hasSecond && (
+          <text x={x(last) + 10} y={y(data[last].invested!) + 4} style={{ fill: "var(--ink-3)", fontSize: 12 }}>
+            {compact(data[last].invested!)}
+          </text>
+        )}
 
         {hover !== null && (
           <>

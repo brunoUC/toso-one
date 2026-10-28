@@ -1,14 +1,26 @@
 import type { Metadata } from "next";
 import { requireSession } from "@/lib/auth";
+import { getOverview, itemAlerts } from "@/lib/financas";
 import { FinanceDashboard } from "./FinanceDashboard";
 
 export const metadata: Metadata = { title: "Finanças" };
+export const dynamic = "force-dynamic";
 
 export default async function FinancasPage() {
   await requireSession("/financas");
+  const data = await getOverview().catch(() => null);
   return (
     <main className="page">
-      <FinanceDashboard />
+      {data && data.items.length && data.netWorth ? (
+        <FinanceDashboard data={data} alerts={itemAlerts(data.items)} />
+      ) : (
+        <div className="card">
+          <h3>Finanças</h3>
+          <p className="card-sub" style={{ margin: 0 }}>
+            Ainda sem dados dos bancos. A primeira leitura roda sozinha às 06:17 e às 18:17; se acabou de conectar, volte em alguns minutos.
+          </p>
+        </div>
+      )}
     </main>
   );
 }

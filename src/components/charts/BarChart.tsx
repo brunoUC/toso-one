@@ -30,7 +30,7 @@ export function BarChart({ data, name, max }: { data: Bar[]; name: string; max: 
           <g key={v}>
             <line x1={P.l} x2={W - P.r} y1={y(v)} y2={y(v)} style={{ stroke: v ? "var(--grid)" : "var(--axis)" }} />
             <text className="axis-label" x={P.l - 10} y={y(v) + 4} textAnchor="end">
-              {v ? `${v / 1000} mil` : "0"}
+              {v ? (max >= 4000 ? `${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil` : Math.round(v)) : "0"}
             </text>
           </g>
         ))}
