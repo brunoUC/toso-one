@@ -81,9 +81,7 @@ export default async function TxPage({ params }: { params: Promise<{ id: string 
             txId={tx.txId}
             category={tx.category}
             custom={custom}
-            canApply={Boolean(suggestion)}
-            applyLabel={suggestion ? `${FIELD_LABEL[suggestion.field]} “${tx.counterpartName ?? tx.merchantName ?? suggestion.value}”` : ""}
-            similarCount={similar.length}
+            who={suggestion ? (tx.counterpartName ?? tx.merchantName ?? tx.description) : null}
             isUser={tx.categorySource === "user"}
             note={tx.note ?? ""}
           />

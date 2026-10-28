@@ -3,6 +3,8 @@ import Link from "next/link";
 import { requireSession } from "@/lib/auth";
 import { CATEGORIES, GROUPS, categoryOf } from "@/lib/fin-taxonomy";
 import { brlCents, dayLabel, getTxList, lastDay, METHOD_LABEL, monthName, shiftMonth, type LeanTx } from "@/lib/financas";
+import { CategoryPicker } from "@/components/fin/CategoryPicker";
+import { LiveSearch } from "@/components/fin/LiveSearch";
 import { FinNav } from "../FinNav";
 
 export const metadata: Metadata = { title: "Extrato · Finanças" };
@@ -15,9 +17,11 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
   await requireSession("/financas/extrato");
   const sp = await searchParams;
   const month = /^\d{4}-\d{2}$/.test(sp.mes ?? "") ? sp.mes! : thisMonth();
-  const { rows, accounts, custom } = await getTxList(`${month}-01`, lastDay(month));
-
   const q = (sp.q ?? "").trim().toLowerCase();
+  // Com busca, procura no último ano inteiro; sem, mostra o mês.
+  const from = q ? `${shiftMonth(thisMonth(), -12)}-01` : `${month}-01`;
+  const { rows, accounts, custom } = await getTxList(from, q ? lastDay(thisMonth()) : lastDay(month));
+
   const filtered = rows.filter((t) => {
     if (sp.conta && t.accountId !== sp.conta) return false;
     if (sp.tipo && t.method !== sp.tipo) return false;
@@ -32,7 +36,7 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
   });
 
   const accName = new Map(accounts.map((a) => [a.accountId, `${a.bank} · ${a.type === "CREDIT" ? "cartão" : "conta"}`]));
-  const days = new Map<string, LeanTx[]>();
+  const days = new Map<string, LeanTx[]>(); // já vem do mais novo para o mais velho
   for (const t of filtered) days.set(t.date, [...(days.get(t.date) ?? []), t]);
 
   let spend = 0;
@@ -64,11 +68,15 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
       <div className="fin-head">
         <div>
           <p className="hero-label">Extrato de todos os bancos</p>
-          <h1 className="fin-month">
-            <Link href={link({ mes: shiftMonth(month, -1) })} aria-label="Mês anterior">‹</Link>
-            {monthName(month)}
-            {month < thisMonth() && <Link href={link({ mes: shiftMonth(month, 1) })} aria-label="Próximo mês">›</Link>}
-          </h1>
+          {q ? (
+            <h1 className="fin-month">“{sp.q}” nos últimos 12 meses</h1>
+          ) : (
+            <h1 className="fin-month">
+              <Link href={link({ mes: shiftMonth(month, -1) })} aria-label="Mês anterior">‹</Link>
+              {monthName(month)}
+              {month < thisMonth() && <Link href={link({ mes: shiftMonth(month, 1) })} aria-label="Próximo mês">›</Link>}
+            </h1>
+          )}
           <div className="hero-delta">
             <span>{filtered.length} movimentações</span>
             <span className="down">Gastos {brlCents(spend)}</span>
@@ -79,7 +87,7 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
 
       <form className="card fin-filters" action="/financas/extrato">
         <input type="hidden" name="mes" value={month} />
-        <input className="ed-input" name="q" placeholder="Buscar loja, pessoa ou descrição" defaultValue={sp.q ?? ""} />
+        <LiveSearch initial={sp.q ?? ""} />
         <select className="ed-input" name="conta" defaultValue={sp.conta ?? ""}>
           <option value="">Todas as contas</option>
           {accounts.map((a) => (
@@ -157,23 +165,20 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
                 </header>
                 <ul>
                   {list.map((t) => {
-                    const cat = categoryOf(t.category, custom);
                     return (
-                      <li key={t.txId}>
-                        <Link href={`/financas/m/${encodeURIComponent(t.txId)}`} className="tx-row">
-                          <span className={`tx-method m-${t.method.toLowerCase()}`}>{METHOD_LABEL[t.method] ?? t.method}</span>
-                          <span className="tx-main">
-                            <b>{t.merchantName ?? t.counterpartName ?? t.description}</b>
-                            <small>
-                              {(t.merchantName || t.counterpartName) && t.description !== (t.merchantName ?? t.counterpartName) ? `${t.description} · ` : ""}
-                              {accName.get(t.accountId)}
-                              {t.installments && t.installments > 1 ? ` · parcela ${t.installment}/${t.installments}` : ""}
-                              {t.status === "PENDING" ? " · pendente" : ""}
-                            </small>
-                          </span>
-                          <span className={`tx-cat${t.category === "a-classificar" ? " warn" : ""}${cat.kind === "internal" || cat.kind === "business" ? " muted" : ""}`}>{cat.name}</span>
-                          <span className={`tx-amt ${t.amount < 0 ? "" : "up"}`}>{brlCents(t.amount)}</span>
+                      <li key={t.txId} className="tx-row">
+                        <span className={`tx-method m-${t.method.toLowerCase()}`}>{METHOD_LABEL[t.method] ?? t.method}</span>
+                        <Link href={`/financas/m/${encodeURIComponent(t.txId)}`} className="tx-main tx-link">
+                          <b>{t.merchantName ?? t.counterpartName ?? t.description}</b>
+                          <small>
+                            {(t.merchantName || t.counterpartName) && t.description !== (t.merchantName ?? t.counterpartName) ? `${t.description} · ` : ""}
+                            {accName.get(t.accountId)}
+                            {t.installments && t.installments > 1 ? ` · parcela ${t.installment}/${t.installments}` : ""}
+                            {t.status === "PENDING" ? " · pendente" : ""}
+                          </small>
                         </Link>
+                        <CategoryPicker txId={t.txId} category={t.category} custom={custom} who={t.counterpartName ?? t.merchantName ?? t.description} />
+                        <span className={`tx-amt ${t.amount < 0 ? "" : "up"}`}>{brlCents(t.amount)}</span>
                       </li>
                     );
                   })}
