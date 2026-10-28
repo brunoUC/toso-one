@@ -18,6 +18,9 @@ export type FlightRoute = {
   series: { day: string; price: number }[];
   fares: (Fare & { seenOn: string; options: number | null })[];
   searchUrl: string;
+  // Pares (ida, volta) da janela já consultados ao menos uma vez, do total
+  // possível. Ausente em data.json anteriores a 28/10/2026.
+  coverage?: { seen: number; total: number };
 };
 
 // Uma tarifa vista: par (ida, volta) com o itinerário mais barato. Horários,

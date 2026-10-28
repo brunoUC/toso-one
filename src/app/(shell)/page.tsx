@@ -15,7 +15,8 @@ const EVENT_LABEL: Record<string, { icon: IconName; text: (d: string) => string 
   passkey_removed: { icon: "lock", text: (d) => `Face ID removido · ${d}` },
   password_locked: { icon: "lock", text: () => "Senha travada por 15 min após 5 erros" },
   routes_saved: { icon: "edit", text: (d) => `Rotas de voos salvas · ${d}` },
-  collect_dispatched: { icon: "refresh", text: () => "Coleta de voos iniciada à mão" },
+  collect_dispatched: { icon: "refresh", text: (d) => (d && d !== "Flight Tracker" ? `Coleta de voos iniciada · ${d}` : "Coleta de voos iniciada à mão") },
+  route_monitored: { icon: "plane", text: (d) => `Novo monitor de voo · ${d}` },
 };
 
 function Activity({ events }: { events: ActivityEvent[] }) {

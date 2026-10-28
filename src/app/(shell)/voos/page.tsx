@@ -1,143 +1,175 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { Sparkline } from "@/components/charts/Sparkline";
-import { FlightArt } from "@/components/FlightArt";
+import { InlineDates } from "@/components/flights/InlineDates";
+import { MapLegend, RouteMap } from "@/components/flights/RouteMap";
+import { SearchBox } from "@/components/flights/SearchBox";
 import { Icon } from "@/components/Icon";
 import { getSession } from "@/lib/auth";
-import { detailsText, fetchFlights, flightsUrl, fmtDay, stayDays, type FlightData, type FlightRoute } from "@/lib/flights";
+import { STATUS_LABEL, distanceShort, distanceText, fareStatus, type FareStatus, type Targets } from "@/lib/fare-status";
+import { airportByCode, airportCity, groupByDestination, type DestinationGroup } from "@/lib/flight-groups";
+import { fetchFlights, flightsUrl, fmtDay, stayDays, type FlightRoute } from "@/lib/flights";
 import { brl } from "@/lib/format";
 import { THEME_COOKIE } from "@/lib/theme";
 
 export const metadata: Metadata = { title: "Voos" };
 
-function Ladder({ route }: { route: FlightRoute }) {
-  const s = route.stats!;
-  const price = route.best!.price;
-  const span = Math.max(s.max - s.min, 1);
-  const at = (v: number) => `${(((v - s.min) / span) * 100).toFixed(1)}%`;
+const COLOR: Record<FareStatus, string> = { below: "var(--up)", between: "var(--sand)", above: "var(--down)", none: "var(--ink-3)" };
+const thousand = (v: number) => (v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " mil";
+
+// Régua do melhor preço contra alvo e teto: faixa verde até o alvo, âmbar até
+// o teto, vermelha acima. As faixas são escritas embaixo, a cor não fala sozinha.
+function TargetMeter({ price, targets }: { price: number; targets: Targets }) {
+  const lo = Math.min(price, targets.buy) * 0.85;
+  const hi = Math.max(price * 1.04, targets.max * 1.15);
+  const at = (v: number) => ((v - lo) / (hi - lo)) * 100;
+  const status = fareStatus(price, targets);
   return (
-    <div className="fl-ladder" role="img" aria-label={`preço de hoje ${brl(price)}, mínimo histórico ${brl(s.min)}, máximo ${brl(s.max)}`}>
-      <span className="fl-tick" style={{ left: at(s.p25) }} />
-      <span className="fl-tick med" style={{ left: at(s.median) }} />
-      <span className="fl-dot" style={{ left: at(price) }} />
+    <div className="tmeter" role="img" aria-label={`${brl(price)}: ${distanceText(price, targets)}. Alvo ${brl(targets.buy)}, teto ${brl(targets.max)}.`}>
+      <div className="tmeter-track">
+        <span className="z below" style={{ width: `${at(targets.buy)}%` }} />
+        <span className="z between" style={{ left: `${at(targets.buy)}%`, width: `${at(targets.max) - at(targets.buy)}%` }} />
+        <span className="z above" style={{ left: `${at(targets.max)}%`, right: 0 }} />
+        <span className="tmeter-dot" style={{ left: `${at(price)}%`, background: COLOR[status] }} />
+      </div>
+      <div className="tmeter-labels" aria-hidden="true">
+        <span style={{ left: `${at(targets.buy)}%` }}>alvo {thousand(targets.buy)}</span>
+        <span style={{ left: `${at(targets.max)}%` }}>teto {thousand(targets.max)}</span>
+      </div>
     </div>
   );
 }
 
-function Legs({ route }: { route: FlightRoute }) {
-  const b = route.best!;
+function OriginRow({ route, showDest }: { route: FlightRoute; showDest: boolean }) {
+  const b = route.best;
+  const status = fareStatus(b?.price, route.targets);
   return (
-    <div className="fl-legs">
-      <div className="fl-leg">
-        <span className="fl-leg-k">ida</span>
-        <b>{fmtDay(b.departDate)}</b>
-        {b.departTime && b.arriveTime && (
-          <span className="fl-time">
-            {b.departTime} {route.origin} → {b.arriveTime}
-            {b.arriveAhead ? <sup>+{b.arriveAhead}</sup> : null} {route.destination}
-          </span>
-        )}
-      </div>
-      {b.returnDate && (
-        <div className="fl-leg">
-          <span className="fl-leg-k">volta</span>
-          <b>{fmtDay(b.returnDate)}</b>
-          <span className="fl-time">{stayDays(b)} dias depois</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RouteCard({ route, minDays }: { route: FlightRoute; minDays: number }) {
-  const b = route.best!;
-  const v = route.verdict;
-  return (
-    <li className={`fl-card ${v.key}`}>
-      <Link className="fl-card-link" href={`/voos/${route.id}`} aria-label={`${route.origin} para ${route.destination}: datas e detalhes`} />
-      <div className="fl-card-head">
-        <span className="fl-pair">
-          <b>{route.origin}</b>
-          <i>→</i>
-          <b>{route.destination}</b>
+    <li>
+      <Link href={`/voos/${route.id}`} className="orow">
+        <span className="dot" style={{ background: COLOR[status] }} aria-hidden="true" />
+        <span className="orow-who">
+          <b>{route.origin}</b> {airportCity(route.origin)}
+          {showDest && <span className="mono"> → {route.destination}</span>}
         </span>
-        <span className="fl-city">{route.city}</span>
-        <span className={`fl-tag ${v.key}`}>{v.label}</span>
-      </div>
-      <div className="fl-price">{brl(b.price)}</div>
-      <Legs route={route} />
-      <div className="fl-meta">
-        {detailsText(b)}
-        {route.fares.length > 1 ? ` · ${route.fares.length} combinações de datas vistas` : ""}
-      </div>
-      {route.stats && <Ladder route={route} />}
-      <div className="fl-foot">
-        <span className="fl-why">
-          {v.why}
-          {route.nDays < minDays ? ` · ${route.nDays}/${minDays} dias` : ""}
+        <span className="orow-trip">
+          {b ? `${fmtDay(b.departDate)}${b.returnDate ? ` · ${stayDays(b)} dias` : ""}` : "sem preço ainda"}
         </span>
-        {route.series.length >= 2 ? (
-          <Sparkline values={route.series.map((p) => p.price)} />
-        ) : (
-          <span className="eyebrow" style={{ margin: 0 }}>histórico curto</span>
-        )}
-      </div>
-      <div className="fl-links">
-        <span className="fl-buy">
-          Datas e detalhes <Icon name="arrow" size={13} />
+        <span className="orow-price">
+          {b ? <b>{brl(b.price)}</b> : <span className="sr-only">{STATUS_LABEL.none}</span>}
+          {b && <span className="sr-only">, {STATUS_LABEL[status]}</span>}
         </span>
-        <a className="fl-buy" href={b.bookingUrl} target="_blank" rel="noopener noreferrer">
-          Conferir no Google <Icon name="external" size={13} />
-        </a>
-      </div>
+        <Icon name="arrow" size={13} />
+      </Link>
     </li>
   );
 }
 
-function Hero({ data }: { data: FlightData }) {
-  const { hero } = data;
-  const deal = hero.state === "deal" ? data.routes.find((r) => r.id === hero.routeId) : undefined;
-  if (deal?.best) {
-    const b = deal.best;
-    return (
-      <section className="fl-hero rise">
-        <FlightArt />
-        <p className="eyebrow">melhor oportunidade agora</p>
-        <h2 className={`fl-verdict ${deal.verdict.key}`}>{deal.verdict.label}</h2>
-        <p className="fl-hero-route">
-          <b>{deal.origin}</b> → <b>{deal.destination}</b> · {deal.city}
-        </p>
-        <p className="fl-hero-price">{brl(b.price)}</p>
-        <Legs route={deal} />
-        <p className="fl-hero-meta">
-          {detailsText(b)} · {deal.verdict.why}
-        </p>
-        <div className="fl-hero-actions">
-          <Link className="fl-hero-buy" href={`/voos/${deal.id}`}>
-            Ver datas e detalhes <Icon name="arrow" size={14} />
-          </Link>
-          <a className="fl-hero-ghost" href={b.bookingUrl} target="_blank" rel="noopener noreferrer">
-            Conferir no Google Flights <Icon name="external" size={14} />
-          </a>
-        </div>
-      </section>
-    );
-  }
-  const texts = {
-    stale: ["sem coleta", "Nenhuma rota tem preço recente. Veja a aba Actions do repositório do Flight Tracker."],
-    nothing: ["nada hoje", "Nenhuma tarifa entrou na faixa. O monitor segue rodando e atualiza amanhã de manhã."],
-    waiting: ["aguardando", `Nenhuma coleta ainda com ida ${data.windowText}. A coleta automática roda toda manhã e preenche as rotas.`],
-    deal: ["", ""],
-  } as const;
-  const [title, body] = texts[hero.state];
+function DestinationCard({ g, canEdit }: { g: DestinationGroup; canEdit: boolean }) {
+  const b = g.best?.best ?? null;
+  const multiAirport = new Set(g.routes.map((r) => r.destination)).size > 1;
   return (
-    <section className="fl-hero rise">
-      <FlightArt />
-      <p className="eyebrow">monitor de tarifas</p>
-      <h2 className="fl-verdict none">{title}</h2>
-      <p className="fl-hero-none">{body}</p>
-    </section>
+    <article id={`dest-${g.key}`} className={`dest ${g.status}`}>
+      <header className="dest-head">
+        <div>
+          <p className="eyebrow">{g.country || " "}</p>
+          <h3>{g.city}</h3>
+        </div>
+        <span className={`dest-tag ${g.status}`}>
+          <i style={{ background: COLOR[g.status] }} aria-hidden="true" />
+          {STATUS_LABEL[g.status]}
+        </span>
+      </header>
+
+      {b && g.best ? (
+        <>
+          <div className="dest-price">
+            <b>{brl(b.price)}</b>
+            <span>
+              de <b className="mono">{g.best.origin}</b>
+              {multiAirport ? <> para <b className="mono">{g.best.destination}</b></> : null} · ida {fmtDay(b.departDate)}
+              {b.returnDate ? `, ${stayDays(b)} dias` : ""}
+            </span>
+          </div>
+          <p className="dest-dist" style={{ color: COLOR[g.status] }}>
+            {distanceText(b.price, g.targets)}
+          </p>
+          <TargetMeter price={b.price} targets={g.targets} />
+        </>
+      ) : (
+        <p className="dest-empty">
+          {g.routes.length
+            ? "Ainda sem preço: a primeira coleta destas rotas preenche aqui."
+            : `Nenhuma rota para ${g.city}. Busque as datas acima e use “Monitorar estas datas”.`}
+        </p>
+      )}
+
+      {g.routes.length > 0 && (
+        <ul className="dest-origins" aria-label={`Origens para ${g.city}`}>
+          {g.routes.map((r) => (
+            <OriginRow key={r.id} route={r} showDest={multiAirport} />
+          ))}
+        </ul>
+      )}
+
+      {g.window && g.stay && (
+        <InlineDates codes={g.codes} city={g.city} window={g.window} stay={g.stay} varies={g.datesVary} canEdit={canEdit} />
+      )}
+      {g.coverage && g.coverage.total > 0 && (
+        <p className="dest-cov">
+          {g.coverage.seen} de {g.coverage.total} combinações de ida e volta já consultadas
+        </p>
+      )}
+    </article>
+  );
+}
+
+function MapSide({ groups, all, stale }: { groups: DestinationGroup[]; all: DestinationGroup[]; stale: boolean }) {
+  // A melhor oportunidade é a mais abaixo do próprio alvo (ou a menos acima).
+  const top = all
+    .filter((g) => g.best?.best)
+    .sort((a, b) => a.best!.best!.price / a.targets.buy - b.best!.best!.price / b.targets.buy)[0];
+  const p = top?.best?.best?.price;
+  return (
+    <aside className="vmap-side">
+      {top && p ? (
+        <div className={`vmap-deal ${top.status}`}>
+          <p className="eyebrow">melhor oportunidade agora</p>
+          <p className="vmap-deal-city">
+            {top.city} <span className="mono">{top.best!.origin}→{top.best!.destination}</span>
+          </p>
+          <p className="vmap-deal-price">{brl(p)}</p>
+          <p className="vmap-deal-dist" style={{ color: COLOR[top.status] }}>
+            {distanceText(p, top.targets)}
+          </p>
+          <Link className="fl-buy" href={`/voos/${top.best!.id}`}>
+            Ver datas e detalhes <Icon name="arrow" size={13} />
+          </Link>
+        </div>
+      ) : (
+        <div className="vmap-deal none">
+          <p className="eyebrow">monitor de tarifas</p>
+          <p className="vmap-deal-city">Aguardando a primeira coleta</p>
+        </div>
+      )}
+      {stale && <p className="vmap-stale">Nenhuma rota tem preço recente: veja a aba Actions do Flight Tracker.</p>}
+      <ol className="vmap-rank">
+        {groups.map((g) => {
+          const price = g.best?.best?.price;
+          return (
+            <li key={g.key}>
+              <a href={`#dest-${g.key}`}>
+                <span className="dot" style={{ background: COLOR[g.status] }} aria-hidden="true" />
+                <span className="vmap-rank-city">{g.city}</span>
+                <span className="vmap-rank-price">{price ? brl(price) : "—"}</span>
+                <span className="vmap-rank-dist" style={{ color: price ? COLOR[g.status] : undefined }}>
+                  {distanceShort(price, g.targets)}
+                </span>
+              </a>
+            </li>
+          );
+        })}
+      </ol>
+    </aside>
   );
 }
 
@@ -145,17 +177,15 @@ export default async function VoosPage() {
   const [session, { data, error }] = await Promise.all([getSession(), fetchFlights()]);
   const source = flightsUrl();
   const grafite = (await cookies()).get(THEME_COOKIE)?.value === "grafite";
-  const updated = data
-    ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(data.generatedAt))
-    : null;
-  const withData = data?.routes.filter((r) => r.best) ?? [];
-  const missing = data?.routes.filter((r) => !r.best) ?? [];
+  const fmt = (iso: string) =>
+    new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(iso));
+  const groups = data ? groupByDestination(data.routes, data.targets) : null;
 
   return (
     <main className="page">
       <div className="fl-head">
         <div>
-          <p className="eyebrow">executiva · brasil → europa{updated ? ` · atualizado ${updated}` : ""}</p>
+          <p className="eyebrow">executiva · brasil → europa e japão{data ? ` · atualizado ${fmt(data.generatedAt)}` : ""}</p>
           <h1>Voos</h1>
         </div>
         <span className="grow" />
@@ -173,61 +203,72 @@ export default async function VoosPage() {
         </div>
       </div>
 
-      {!data ? (
+      <SearchBox
+        signedIn={Boolean(session)}
+        defaultOrigin={airportByCode("GRU")}
+        routes={data?.routes.map((r) => ({ id: r.id, targets: r.targets })) ?? []}
+        defaults={data?.targets ?? { buy: 11000, max: 13000 }}
+      />
+
+      {!data || !groups ? (
         <div className="card empty">{error}</div>
       ) : (
         <>
-          <Hero data={data} />
+          <section className="vmap card rise" aria-label="Mapa das rotas">
+            <div className="vmap-map">
+              <RouteMap groups={[...groups.featured, ...groups.others]} />
+              <MapLegend />
+            </div>
+            <MapSide groups={groups.featured} all={[...groups.featured, ...groups.others]} stale={data.hero.state === "stale"} />
+          </section>
 
-          {withData.length > 0 && (
+          <div className="section-title">
+            <span className="ti">
+              <Icon name="plane" size={16} />
+            </span>
+            <h2>Destinos</h2>
+            <span className="count">{String(groups.featured.length).padStart(2, "0")}</span>
+          </div>
+          <div className="dest-grid">
+            {groups.featured.map((g) => (
+              <DestinationCard key={g.key} g={g} canEdit={Boolean(session)} />
+            ))}
+          </div>
+
+          {groups.others.length > 0 && (
             <>
-              <div className="section-title">
+              <div className="section-title" id="outros">
                 <span className="ti">
                   <Icon name="list" size={16} />
                 </span>
-                <h2>Todas as rotas</h2>
-                <span className="count">{String(withData.length).padStart(2, "0")}</span>
+                <h2>Outros destinos</h2>
+                <span className="count">{String(groups.others.length).padStart(2, "0")}</span>
               </div>
-              <ul className="fl-grid">
-                {withData.map((r) => (
-                  <RouteCard key={r.id} route={r} minDays={data.minDays} />
+              <div className="dest-grid">
+                {groups.others.map((g) => (
+                  <DestinationCard key={g.key} g={g} canEdit={Boolean(session)} />
                 ))}
-              </ul>
+              </div>
             </>
-          )}
-
-          {missing.length > 0 && (
-            <div className="fl-missing">
-              <p>Sem dados com ida {data.windowText}:</p>
-              <div className="chips">
-                {missing.map((r) => (
-                  <Link key={r.id} className="chip" href={`/voos/${r.id}`}>
-                    {r.origin}→{r.destination}
-                  </Link>
-                ))}
-              </div>
-            </div>
           )}
 
           <footer className="fl-note">
             <p>
-              A barra mostra onde o melhor preço de hoje cai entre o menor e o maior dos mínimos diários já registrados na rota;
-              os traços marcam o percentil 25 e a mediana. Percentis só valem como critério a partir de {data.minDays} dias de
-              histórico. Alvo padrão {brl(data.targets.buy)}, teto padrão {brl(data.targets.max)}.
+              Cada destino junta todas as origens monitoradas; o preço do destino é o menor entre elas, na última coleta. Verde: até o
+              alvo. Âmbar: entre o alvo e o teto. Vermelho: acima do teto. Cinza: ainda sem preço. A distância é contra o alvo e o teto
+              da rota mais barata (padrão {brl(data.targets.buy)} e {brl(data.targets.max)}).
             </p>
             <p>
-              As datas de cada rota são as da tarifa mais barata da última coleta. O link abre essa mesma busca no Google Flights,
-              onde aparecem as opções de compra.
+              Ajustar as datas de um destino vale para todas as origens dele e já dispara uma coleta só dessas rotas, priorizando as
+              combinações de ida e volta que ainda não foram consultadas.
             </p>
             {data.lastRun && (
               <p>
-                Última coleta{" "}
-                {new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(data.lastRun.started_at))}
-                : {data.lastRun.ok} consultas com resultado · {data.lastRun.failed} sem.
+                Última coleta {fmt(data.lastRun.started_at)}: {data.lastRun.ok} consultas com resultado · {data.lastRun.failed} sem.
                 {data.lastRun.expired.length > 0 && (
                   <>
                     {" "}
-                    <strong>Janela vencida em {data.lastRun.expired.join(", ")}.</strong> Atualize as datas no editor.
+                    <strong>Janela vencida em {data.lastRun.expired.join(", ")}.</strong> Ajuste as datas do destino.
                   </>
                 )}
               </p>

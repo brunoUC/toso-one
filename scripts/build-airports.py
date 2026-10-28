@@ -19,6 +19,9 @@ import sys
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent / "src" / "data" / "airports.json"
+# Coordenadas ficam num arquivo à parte: só o mapa (no servidor) usa, e a
+# busca no navegador não precisa baixar esses bytes.
+COORDS = OUT.with_name("airport-coords.json")
 
 # IATA → cidade em português. Inclui os aeroportos secundários das mesmas
 # cidades, para "Milão" achar MXP, LIN e BGY.
@@ -94,6 +97,7 @@ def clean_city(raw):
 
 def main(src):
     airports = []
+    coords = {}
     with open(src, encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
             code = r["iata_code"].strip().upper()
@@ -102,6 +106,7 @@ def main(src):
             if not re.fullmatch(r"[A-Z]{3}", code):
                 continue
             city = PT_CITY.get(code) or clean_city(r["municipality"]) or r["name"]
+            coords[code] = [round(float(r["longitude_deg"]), 2), round(float(r["latitude_deg"]), 2)]
             airports.append({
                 "i": code,
                 "c": city,
@@ -113,7 +118,8 @@ def main(src):
     airports.sort(key=lambda a: (not a["l"], a["i"]))
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(airports, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"{len(airports)} aeroportos em {OUT}")
+    COORDS.write_text(json.dumps(coords, separators=(",", ":")), encoding="utf-8")
+    print(f"{len(airports)} aeroportos em {OUT} e coordenadas em {COORDS.name}")
 
 
 if __name__ == "__main__":

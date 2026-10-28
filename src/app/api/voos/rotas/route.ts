@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { getSession, relyingParty } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { logEvent } from "@/lib/convex";
-import { FlightsApiError, flightsApi, type RoutesConfig } from "@/lib/flights-api";
+import type { RoutesConfig } from "@/lib/flights-api";
+import { changedRouteIds, collectMessage, collectRoutes, errorJson, readRoutes, writeRoutes } from "@/lib/flights-routes";
 
 function fail(err: unknown) {
-  const e = err instanceof FlightsApiError ? err : new FlightsApiError((err as Error).message, 500);
-  return NextResponse.json({ error: e.message, details: e.details }, { status: e.status });
+  const { body, status } = errorJson(err);
+  return NextResponse.json(body, { status });
 }
 
 // Resumo do que mudou, para a atividade do hub.
@@ -18,17 +19,17 @@ function describe(before: RoutesConfig["routes"], after: RoutesConfig["routes"])
   return parts.filter(Boolean).join(", ") || "padrões";
 }
 
+// Grava e já dispara a coleta das rotas novas ou com datas alteradas, para o
+// histórico não esperar a próxima coleta agendada.
 export async function PUT(request: Request) {
   if (!(await getSession())) return NextResponse.json({ error: "Entre primeiro." }, { status: 401 });
   const body = (await request.json().catch(() => null)) as { config?: RoutesConfig; sha?: string; before?: RoutesConfig["routes"] } | null;
   if (!body?.config || !body.sha) return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
   try {
-    // A página própria do Flight Tracker usa hub_url nos botões de navegação.
-    const { origin } = await relyingParty();
-    const config = { ...body.config, ...(origin.startsWith("http://localhost") ? {} : { hub_url: origin }) };
-    const saved = await flightsApi<{ sha: string }>("config", { method: "PUT", body: { config, sha: body.sha } });
-    await logEvent("routes_saved", describe(body.before ?? [], config.routes));
-    return NextResponse.json({ ok: true, sha: saved.sha });
+    const sha = await writeRoutes(body.config, body.sha);
+    await logEvent("routes_saved", describe(body.before ?? [], body.config.routes));
+    const collect = await collectRoutes(changedRouteIds(body.before ?? [], body.config.routes));
+    return NextResponse.json({ ok: true, sha, collect, collectText: collectMessage(collect) });
   } catch (err) {
     return fail(err);
   }
@@ -37,7 +38,7 @@ export async function PUT(request: Request) {
 export async function GET() {
   if (!(await getSession())) return NextResponse.json({ error: "Entre primeiro." }, { status: 401 });
   try {
-    return NextResponse.json(await flightsApi("config"));
+    return NextResponse.json(await readRoutes());
   } catch (err) {
     return fail(err);
   }

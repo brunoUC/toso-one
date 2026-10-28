@@ -811,3 +811,157 @@ a.btn { text-decoration: none; }
   .fx-day.min .p::before { content: ""; }
   .card { padding: 16px; }
 }
+
+/* ════════ VOOS v3: busca, mapa e destinos ════════ */
+.mono { font-family: var(--mono); letter-spacing: .03em; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
+
+/* Busca */
+.srch { margin-bottom: 16px; padding: 16px 18px; }
+.srch-form { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr) auto; gap: 12px; align-items: end; }
+.srch .ap-picked { overflow: hidden; white-space: nowrap; }
+.srch .ap-picked button { flex: none; }
+.srch-go { height: 36px; }
+.srch-wait { margin: 12px 0 0; font-size: 13px; color: var(--ink-2); }
+.srch-wait::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; background: var(--sand); animation: pulse 1.2s ease-in-out infinite; }
+.srch-out { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--hairline); display: grid; gap: 10px; }
+.srch-head { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; color: var(--ink-2); }
+.srch-head b { color: var(--ink-1); font-weight: 500; }
+.srch-targets { margin-left: auto; font-size: 12px; color: var(--ink-3); }
+.srch-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.srch-list li {
+  display: grid; grid-template-columns: 96px 128px minmax(110px, auto) 1fr; gap: 4px 14px; align-items: baseline;
+  padding: 10px 12px; border-radius: 12px; background: var(--surface-2); font-size: 13px;
+}
+.srch-list li > b { font-size: 16px; font-weight: 500; letter-spacing: -.02em; }
+.srch-status { font-size: 12px; }
+.srch-times { color: var(--ink-1); font-variant-numeric: tabular-nums; }
+.srch-times sup { color: var(--sand); }
+.srch-meta { color: var(--ink-3); font-size: 12.5px; }
+.srch-fail { margin: 0; font-size: 13px; color: var(--ink-2); }
+.srch-actions { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+
+/* Mapa */
+.vmap { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, 1fr); gap: 24px; margin-bottom: 40px; padding: 18px; }
+.vmap-map { min-width: 0; }
+.rmap { display: block; width: 100%; height: auto; }
+.rmap-land { fill: var(--surface-3); stroke: var(--surface-1); stroke-width: .8; }
+.rmap-brazil { fill: color-mix(in srgb, var(--accent) 16%, var(--surface-3)); stroke: var(--surface-1); stroke-width: .8; }
+.rmap-arcs path { fill: none; stroke: var(--ink-3); stroke-opacity: .32; stroke-width: 1.4; }
+.rmap-arcs path.best { stroke-opacity: .85; stroke-width: 2.2; }
+.rmap-inset rect { fill: var(--surface-1); stroke: var(--hairline-strong); }
+.rmap-inset-t { font: 500 15px var(--mono); letter-spacing: .14em; fill: var(--ink-3); }
+.rmap-origin circle { fill: var(--surface-1); stroke: var(--ink-1); stroke-width: 2.5; }
+.rmap-origin text { font: 500 19px var(--mono); fill: var(--ink-2); letter-spacing: .04em; }
+.rmap-dest circle { stroke: var(--surface-1); stroke-width: 3; }
+.rmap-dest:hover circle, .rmap-dest:focus-visible circle { stroke: var(--ink-1); }
+.rmap-dest:focus-visible { outline: none; }
+.rmap-label { paint-order: stroke; stroke: var(--surface-1); stroke-width: 6px; stroke-linejoin: round; }
+.rmap-label { font: 500 24px var(--sans); fill: var(--ink-1); }
+.rmap-legend { margin-top: 10px; }
+.rmap-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.rmap-legend i.dot.ring { background: var(--surface-1); border: 2px solid var(--ink-1); width: 10px; height: 10px; }
+.rmap-legend i.dot { margin: 0; width: 9px; height: 9px; border-radius: 50%; }
+
+.vmap-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.vmap-deal { padding: 18px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--hairline); }
+.vmap-deal.below { background: linear-gradient(160deg, color-mix(in srgb, var(--up) 12%, transparent), transparent 70%), var(--surface-2); }
+.vmap-deal p { margin: 0; }
+.vmap-deal .eyebrow { margin-bottom: 10px; }
+.vmap-deal-city { font: 400 28px/1.1 var(--serif); }
+.vmap-deal-city .mono { font-size: 12px; color: var(--ink-3); margin-left: 6px; }
+.vmap-deal-price { font-size: 34px; font-weight: 500; letter-spacing: -.03em; line-height: 1.15; margin-top: 6px !important; }
+.vmap-deal-dist { font-size: 13px; margin: 2px 0 12px !important; }
+.vmap-stale { margin: 0; font-size: 12.5px; color: var(--down); }
+.vmap-rank { list-style: none; margin: 0; padding: 0; }
+.vmap-rank li + li { border-top: 1px solid var(--hairline); }
+.vmap-rank a {
+  display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 2px 12px; align-items: baseline;
+  padding: 10px 4px; text-decoration: none; color: var(--ink-1); border-radius: 8px;
+}
+.vmap-rank a:hover { background: var(--surface-2); }
+.vmap-rank .dot { align-self: center; }
+.vmap-rank-city { font-weight: 500; }
+.vmap-rank-price { font-variant-numeric: tabular-nums; font-weight: 500; }
+.vmap-rank-dist { grid-column: 2 / -1; font-size: 12px; color: var(--ink-3); }
+
+/* Destinos */
+.dest-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; margin-bottom: 40px; }
+.dest {
+  display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 20px; scroll-margin-top: 90px;
+  background: var(--surface-1); border: 1px solid var(--hairline); box-shadow: var(--shadow-card);
+}
+.dest:target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.dest-head { display: flex; align-items: flex-start; gap: 10px; justify-content: space-between; }
+.dest-head .eyebrow { margin-bottom: 6px; }
+.dest-head h3 { margin: 0; font: 400 32px/1 var(--serif); letter-spacing: -.01em; }
+.dest-tag { display: inline-flex; align-items: center; gap: 6px; font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; border: 1px solid var(--hairline-strong); color: var(--ink-2); white-space: nowrap; }
+.dest-tag i { width: 7px; height: 7px; border-radius: 50%; }
+.dest-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.dest-price > b { font-size: 30px; font-weight: 500; letter-spacing: -.03em; line-height: 1.1; }
+.dest-price span { font-size: 13px; color: var(--ink-2); }
+.dest-price .mono { font-weight: 500; }
+.dest-dist { margin: -6px 0 0; font-size: 13px; font-weight: 500; }
+.dest-empty { margin: 0; font-size: 13px; color: var(--ink-3); }
+
+.tmeter { padding: 6px 0 16px; }
+.tmeter-track { position: relative; height: 8px; border-radius: 4px; overflow: visible; }
+.tmeter-track .z { position: absolute; top: 0; bottom: 0; }
+.tmeter-track .z.below { left: 0; border-radius: 4px 0 0 4px; background: color-mix(in srgb, var(--up) 26%, var(--surface-2)); }
+.tmeter-track .z.between { background: color-mix(in srgb, var(--sand) 30%, var(--surface-2)); }
+.tmeter-track .z.above { border-radius: 0 4px 4px 0; background: color-mix(in srgb, var(--down) 22%, var(--surface-2)); }
+.tmeter-dot { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; border: 3px solid var(--surface-1); transform: translate(-50%, -50%); box-shadow: 0 0 0 1px var(--hairline-strong); }
+.tmeter-labels { position: relative; height: 0; }
+/* alvo termina na própria marca e teto começa na dela: os dois nunca se cruzam */
+.tmeter-labels span { position: absolute; top: 5px; font: 400 10.5px var(--mono); color: var(--ink-3); white-space: nowrap; }
+.tmeter-labels span:first-child { transform: translateX(-100%); padding-right: 5px; border-right: 1px solid var(--axis); }
+.tmeter-labels span:last-child { padding-left: 5px; border-left: 1px solid var(--axis); }
+
+.dest-origins { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hairline); }
+.dest-origins li { border-bottom: 1px solid var(--hairline); }
+.orow {
+  display: grid; grid-template-columns: 9px minmax(0, 1fr) auto auto 13px; gap: 10px; align-items: center;
+  padding: 9px 2px; text-decoration: none; color: var(--ink-1); font-size: 13px;
+}
+.orow:hover { background: var(--surface-2); }
+.orow-who { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.orow-who b { font: 500 13px var(--mono); color: var(--ink-1); letter-spacing: .04em; margin-right: 4px; }
+.orow-trip { color: var(--ink-3); font-size: 12px; white-space: nowrap; }
+.orow-price b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.orow svg { color: var(--ink-3); }
+
+.dates { display: grid; gap: 6px; }
+.dates-read { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--ink-2); }
+.dates-read svg { vertical-align: -2px; color: var(--ink-3); }
+.dates-read b { font-weight: 500; color: var(--ink-1); }
+.dates-read em { color: var(--ink-3); }
+.dates-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; text-decoration: none; }
+.dates-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--hairline); }
+.dates-edit .ed-field:nth-child(3) { grid-column: 1 / -1; }
+.dates-actions { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+.dates-note { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--ink-3); }
+.dates-msg { grid-column: 1 / -1; margin: 0; font-size: 12.5px; }
+.dates-msg.ok { color: var(--up); }
+.dates-msg.bad { color: var(--down); }
+.dest-cov { margin: 0; font-size: 11.5px; color: var(--ink-3); }
+
+@media (max-width: 960px) {
+  .vmap { grid-template-columns: 1fr; }
+  .srch-form { grid-template-columns: 1fr 1fr; }
+  .srch-form > :first-child { grid-column: 1 / -1; }
+  .srch-go { grid-column: 1 / -1; width: 100%; }
+}
+@media (max-width: 560px) {
+  .vmap { padding: 12px; gap: 16px; }
+  .rmap-origin text { display: none; }
+  .rmap-label { font-size: 34px; }
+  .rmap-label { stroke-width: 8px; }
+  .dest-grid { grid-template-columns: 1fr; }
+  .dest { padding: 16px; }
+  .srch { padding: 14px; }
+  .srch-list li { grid-template-columns: auto 1fr; }
+  .srch-times, .srch-meta { grid-column: 1 / -1; }
+  .srch-targets { margin-left: 0; width: 100%; }
+  .orow { grid-template-columns: 9px minmax(0, 1fr) auto 13px; }
+  .orow-trip { display: none; }
+}

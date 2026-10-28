@@ -101,8 +101,24 @@ indisponível em Ajustes.
 O Flight Tracker continua coletando sozinho no GitHub Actions e publicando
 um `data.json` na Vercel. O toso one lê esse arquivo (cache de 10 min).
 
-- **`/voos`**: veredito do dia e um card por rota com a tarifa mais barata
-  da última coleta, ida (com horário de partida e chegada) e volta.
+- **`/voos`**: na frente, a busca e o mapa (Brasil, Europa e o Japão num
+  recorte), desenhado no servidor com `d3-geo` sobre o `world-atlas`
+  1:110m. Cada destino é um ponto na cor do melhor preço contra a rota:
+  verde até o alvo, âmbar até o teto, vermelho acima, cinza sem dados.
+  Abaixo, um card por destino (Lisboa, Madri, Roma, Atenas, Viena e Tóquio
+  em destaque; os outros em "Outros destinos") com o menor preço entre as
+  origens, a distância até o alvo/teto em R$ e %, as origens com link para o
+  detalhe e as datas do destino, que dá para ajustar ali mesmo com sessão.
+  - **Busca** (destino, ida, volta, origem GRU por padrão): com sessão,
+    pergunta ao Google Flights na hora pelo `api/search.py` do Flight
+    Tracker; sempre oferece o link da mesma busca no Google Flights
+    (`src/lib/gflights.ts` monta o `tfs` igual à fast-flights). "Monitorar
+    estas datas" cria a rota (ida de 3 dias antes a 3 depois, estadia ±2
+    dias) ou alarga a janela da que já existe. Sem sessão, só o link.
+  - **Coleta direcionada**: salvar rotas no editor, ajustar as datas de um
+    destino ou monitorar uma busca dispara na hora uma coleta só das rotas
+    novas ou alteradas (6 combinações de datas por rota, priorizando as
+    nunca consultadas), sem esperar a coleta agendada.
 - **`/voos/ORIGEM-DESTINO`**: o "bilhete" da melhor tarifa, calendário com o
   menor preço visto para cada dia de ida, as voltas consultadas de cada dia
   com preço, horário e a avaliação do próprio Google (baixo/típico/alto),
@@ -117,7 +133,8 @@ um `data.json` na Vercel. O toso one lê esse arquivo (cache de 10 min).
 
 A busca de aeroportos aceita cidade em português, nome ou código, sobre a
 base do [OurAirports](https://ourairports.com/data/) (domínio público) em
-`src/data/airports.json`. Para regerar: `scripts/build-airports.py`.
+`src/data/airports.json`. Para regerar: `scripts/build-airports.py` (gera
+também `src/data/airport-coords.json`, as coordenadas usadas só no mapa).
 
 O histórico de preços é indexado por `ORIGEM-DESTINO`: trocar a origem ou
 o destino de uma rota começa um histórico novo (o antigo fica guardado).

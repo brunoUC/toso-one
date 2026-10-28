@@ -209,7 +209,11 @@ export function RoutesEditor({
       setSaved(state);
       setSha(data.sha);
       setSelected(new Set());
-      setMessage({ ok: true, text: "Salvo. A próxima coleta já usa a configuração nova." });
+      setMessage({
+        ok: data.collect?.ok !== false,
+        text: data.collectText ? `Salvo. ${data.collectText}` : "Salvo. A próxima coleta já usa a configuração nova.",
+      });
+      if (data.collect?.routes?.length) setTimeout(loadRuns, 4000);
     } finally {
       setBusy(null);
     }
