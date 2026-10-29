@@ -11,11 +11,6 @@ import { BudgetTable, type BudgetRow } from "./BudgetTable";
 export const metadata: Metadata = { title: "Orçamento · Finanças" };
 export const dynamic = "force-dynamic";
 
-const median = (v: number[]) => {
-  const s = [...v].sort((a, b) => a - b);
-  return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : 0;
-};
-
 type Search = { visao?: string; mes?: string; ano?: string };
 
 export default async function OrcamentoPage({ searchParams }: { searchParams: Promise<Search> }) {
@@ -77,7 +72,6 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
       limitPeriod,
       defaultLimit: line.limit,
       avg: hist.length ? hist.reduce((a, b) => a + b, 0) / hist.length : 0,
-      median: median(hist),
       spent,
       projected,
       href: `/financas/extrato?mes=${lastKey}&linha=${line.id}`,

@@ -16,7 +16,6 @@ export type BudgetRow = {
   limitPeriod: number; // no período mostrado (mês ou ano)
   defaultLimit: number;
   avg: number;
-  median: number;
   spent: number;
   projected: number;
   href: string;
@@ -111,7 +110,7 @@ export function BudgetTable({ rows, pace, periodLabel, annual }: { rows: BudgetR
       </div>
       <p className="card-sub">
         Barra = {periodLabel}
-        {pace !== null ? `. Traço = onde um gasto variável deveria estar hoje (${Math.round(pace * 100)}% ${annual ? "do ano" : "do mês"})` : ""}. Média e mediana por mês,
+        {pace !== null ? `. Traço = onde um gasto variável deveria estar hoje (${Math.round(pace * 100)}% ${annual ? "do ano" : "do mês"})` : ""}. Média por mês,
         dos meses fechados.
       </p>
       <div className="bud-wrap">
@@ -121,7 +120,6 @@ export function BudgetTable({ rows, pace, periodLabel, annual }: { rows: BudgetR
               <th>Linha</th>
               <th>{annual ? "Limite no ano" : "Limite"}</th>
               <th>Média/mês</th>
-              <th>Mediana</th>
               <th className="bud-bar-h">{periodLabel}</th>
               <th>{pace !== null ? "Projeção" : "Fechou"}</th>
             </tr>
@@ -135,7 +133,6 @@ export function BudgetTable({ rows, pace, periodLabel, annual }: { rows: BudgetR
                     <td>{section}</td>
                     <td>{brl(sum(list, (r) => r.limitPeriod))}</td>
                     <td>{brl(sum(list, (r) => r.avg))}</td>
-                    <td>{brl(sum(list, (r) => r.median))}</td>
                     <td>
                       <div className="bud-bar-in">
                         <span className="bud-spent">{brl(sum(list, (r) => r.spent))}</span>
@@ -159,7 +156,6 @@ export function BudgetTable({ rows, pace, periodLabel, annual }: { rows: BudgetR
                           <LimitCell row={r} annual={annual} onSaved={() => router.refresh()} />
                         </td>
                         <td className={r.avg > r.limit * 1.1 ? "down" : undefined}>{brl(r.avg)}</td>
-                        <td>{brl(r.median)}</td>
                         <td className="bud-bar-c">
                           <div className="bud-bar-in">
                             <span className="bud-bar" title={`${brl(r.spent)} de ${brl(r.limitPeriod)}`}>
@@ -180,7 +176,6 @@ export function BudgetTable({ rows, pace, periodLabel, annual }: { rows: BudgetR
               <td>Total</td>
               <td>{brl(sum(rows, (r) => r.limitPeriod))}</td>
               <td>{brl(sum(rows, (r) => r.avg))}</td>
-              <td>{brl(sum(rows, (r) => r.median))}</td>
               <td>
                 <div className="bud-bar-in">
                   <span className="bud-spent">{brl(sum(rows, (r) => r.spent))}</span>
