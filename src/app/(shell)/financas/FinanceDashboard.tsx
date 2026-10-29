@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AllocationBar } from "@/components/charts/AllocationBar";
-import { BarChart } from "@/components/charts/BarChart";
+import { FlowChart } from "@/components/charts/FlowChart";
 import { GoalMeter } from "@/components/charts/GoalMeter";
 import { NetWorthChart } from "@/components/charts/NetWorthChart";
 import { StatTile } from "@/components/charts/StatTile";
@@ -25,13 +25,6 @@ const INVESTMENT_LABEL: Record<string, string> = {
 };
 
 const pctTxt = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(Math.round(v * 100))}%`;
-
-function niceMax(v: number) {
-  if (v <= 0) return 1000;
-  const p = 10 ** Math.floor(Math.log10(v));
-  const m = [1, 1.2, 1.6, 2, 2.4, 3, 4, 5, 6, 8, 10].find((k) => k * p >= v) ?? 10;
-  return m * p;
-}
 
 async function post(body: Record<string, unknown>) {
   const res = await fetch("/api/financas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -56,6 +49,10 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
   const banks = data.accounts.filter((a) => a.type === "BANK");
   const total = netWorth?.total ?? 0;
   const series = data.series.map((p) => ({ label: p.label, netWorth: p.total }));
+  // O primeiro mês da série só tem o último dia (31/10/2025): fica de fora.
+  const flow = months.slice(1).map((m) => ({ label: m.label, income: Math.max(0, m.income), expense: Math.max(0, m.expense), partial: m.partial }));
+  let run = 0;
+  const cumulative = flow.map((m) => ({ label: m.label, netWorth: (run += m.income - m.expense) }));
   const yearAgo = data.series.length >= 13 ? data.series[0] : null;
   const lastSync = Math.max(...data.items.map((i) => i.lastSyncAt ?? 0));
 
@@ -157,29 +154,26 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
       </div>
 
       <div className="grid">
-        {series.length > 1 ? (
-          <div className="card span-8 rise">
-            <div className="card-title">
-              <h3>Evolução do patrimônio</h3>
-            </div>
-            <p className="card-sub">Fim de cada mês, pela fotografia diária das contas, investimentos e cartões conectados.</p>
-            <NetWorthChart data={series} />
-          </div>
-        ) : (
-          <div className="card span-8 rise">
-            <div className="card-title">
-              <h3>Gastos por mês</h3>
-              <span className="card-sub" style={{ margin: 0 }}>
-                média {brl(avg((m) => m.expense, closed.slice(-12)))}
+        <div className="card span-8 rise">
+          <div className="card-title">
+            <h3>Entradas e gastos por mês</h3>
+            <div className="legend">
+              <span>
+                <i style={{ background: "var(--s1)" }} />
+                Entradas
+              </span>
+              <span>
+                <i style={{ background: "var(--s2)" }} />
+                Gastos
               </span>
             </div>
-            <p className="card-sub">
-              Cartões, PIX, boletos e débitos. Fatura paga, aplicação e transferência entre suas contas ficam de fora. A evolução do patrimônio aparece aqui
-              quando houver um mês de fotografias diárias (a primeira foi em {data.series[0]?.label ?? "hoje"}).
-            </p>
-            <BarChart name="Gastos" max={niceMax(Math.max(...months.map((m) => m.expense)))} data={months.map((m) => ({ label: m.label, value: Math.max(0, m.expense) }))} />
           </div>
-        )}
+          <p className="card-sub">
+            Média de {brl(avg((m) => m.income, months.slice(1).filter((m) => !m.partial)))} entrando e {brl(avg((m) => m.expense, months.slice(1).filter((m) => !m.partial)))} saindo. Fatura
+            paga, aplicações, resgates, transferências entre suas contas e gastos da empresa ficam de fora.
+          </p>
+          <FlowChart data={flow} />
+        </div>
 
         <div className="card span-4 rise">
           <div className="card-title">
@@ -227,21 +221,17 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
 
         <div className="card span-6">
           <div className="card-title">
-            <h3>{series.length > 1 ? "Gastos por mês" : "Entradas por mês"}</h3>
+            <h3>{series.length > 1 ? "Evolução do patrimônio" : "Sobra acumulada"}</h3>
             <span className="card-sub" style={{ margin: 0 }}>
-              média {brl(avg((m) => (series.length > 1 ? m.expense : m.income), closed.slice(-12)))}
+              {series.length > 1 ? brl(series[series.length - 1].netWorth) : `${brl(cumulative[cumulative.length - 1]?.netWorth ?? 0)} desde ${flow[0]?.label ?? ""}`}
             </span>
           </div>
           <p className="card-sub">
             {series.length > 1
-              ? "Cartões, PIX, boletos e débitos. Fatura paga, aplicação e transferência entre suas contas ficam de fora."
-              : "Salário, pró-labore, rendimentos e o que mais entrou, sem resgates e transferências entre suas contas."}
+              ? "Fim de cada mês, pela fotografia diária das contas, investimentos e cartões conectados."
+              : "Entradas menos gastos, somando mês a mês: é o que sobrou para investir. O patrimônio de cada mês aparece aqui quando houver um mês de fotografias diárias."}
           </p>
-          {series.length > 1 ? (
-            <BarChart name="Gastos" max={niceMax(Math.max(...months.map((m) => m.expense)))} data={months.map((m) => ({ label: m.label, value: Math.max(0, m.expense) }))} />
-          ) : (
-            <BarChart name="Entradas" max={niceMax(Math.max(...months.map((m) => m.income)))} data={months.map((m) => ({ label: m.label, value: Math.max(0, m.income) }))} />
-          )}
+          {series.length > 1 ? <NetWorthChart data={series} /> : <NetWorthChart data={cumulative} name="Sobra acumulada" />}
         </div>
 
         <div className="card span-6">

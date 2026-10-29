@@ -16,7 +16,7 @@ function niceStep(range: number): number {
 
 // Patrimônio (série principal, com área) contra total aportado (tinta de
 // apoio). Um eixo só; rótulos diretos no fim; crosshair que encaixa no mês.
-export function NetWorthChart({ data }: { data: Point[] }) {
+export function NetWorthChart({ data, name = "Patrimônio" }: { data: Point[]; name?: string }) {
   const [ref, W] = useWidth<HTMLDivElement>();
   const [tip, setTip] = useState<TipState>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -59,7 +59,7 @@ export function NetWorthChart({ data }: { data: Point[] }) {
             { name: "Aportado", color: "var(--ink-3)", value: brl(d.invested!) },
             { name: "Rendeu", color: "transparent", value: brl(d.netWorth - d.invested!) },
           ]
-        : [{ name: "Patrimônio", color: "var(--s1)", value: brl(d.netWorth) }],
+        : [{ name, color: "var(--s1)", value: brl(d.netWorth) }],
     });
   }
 
