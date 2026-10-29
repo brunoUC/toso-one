@@ -34,6 +34,7 @@ export type MonthAgg = {
   expense: number;
   business: number; // gasto da empresa pela conta pessoal, fora dos gastos
   businessByCategory: Record<string, number>; // stemos, reembolso-empresa (positivo = saiu de mim)
+  gains?: number; // valorização dos investimentos no mês (preenchida no overview)
   byCategory: Record<string, number>; // gasto líquido (estornos abatem)
   byGroup: Record<string, number>;
   incomeByCategory: Record<string, number>;
@@ -205,4 +206,78 @@ export function insights(
     });
   }
   return out;
+}
+
+// ── Valorização dos investimentos ───────────────────────────────────────────
+// Separa ganho de aporte: em cada dia, cotas que eu tinha × quanto a cota
+// subiu. O preço da cota só é conhecido nas datas das compras/resgates e hoje;
+// entre elas, interpolação geométrica (rendimento constante no intervalo).
+// Juros pagos em dinheiro (cupom do Tesouro) já entram na conta como
+// rendimento, então não são somados aqui.
+
+export type InvLite = { investmentId: string; name: string; bank: string; gone: boolean; quantity?: number; unitValue?: number; balance: number; invested?: number; type: string };
+export type InvTxLite = { investmentId: string; date: string; type: string; movementType?: string; quantity?: number; value?: number };
+export type InvGain = { investmentId: string; name: string; bank: string; gone: boolean; gain: number; since: string | null; how: "cota" | "aplicado" };
+
+const DAY = 86400_000;
+const dayMs = (d: string) => Date.parse(d + "T00:00:00Z");
+const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+export function investmentGains(invs: InvLite[], txs: InvTxLite[], today: string): { byMonth: Record<string, number>; items: InvGain[] } {
+  const byMonth: Record<string, number> = {};
+  const items: InvGain[] = [];
+  for (const inv of invs) {
+    const mine = txs.filter((t) => t.investmentId === inv.investmentId).sort((a, b) => (a.date < b.date ? -1 : 1));
+    const pts = new Map<string, number>();
+    // Preço só de compra/resgate: nos juros, "value" é o valor do cupom.
+    for (const t of mine) if ((t.type === "BUY" || t.type === "SELL") && t.value && t.value > 0) pts.set(t.date, t.value);
+    if (!inv.gone && inv.unitValue && inv.unitValue > 0) pts.set(today, inv.unitValue);
+    const points = [...pts.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+
+    if (points.length < 2 || !mine.some((t) => t.quantity)) {
+      // Sem preço de cota (título com preço fixo): só o total desde a compra.
+      if (!inv.gone && inv.invested) items.push({ investmentId: inv.investmentId, name: inv.name, bank: inv.bank, gone: inv.gone, gain: inv.balance - inv.invested, since: null, how: "aplicado" });
+      continue;
+    }
+
+    const signed = (t: InvTxLite) => {
+      const q = Math.abs(t.quantity ?? 0);
+      if (t.type === "BUY" || (t.type !== "SELL" && t.movementType === "CREDIT" && t.type !== "INTEREST")) return q;
+      if (t.type === "SELL" || (t.movementType === "DEBIT" && t.type !== "INTEREST")) return -q;
+      return 0;
+    };
+    // Cotas no fim de cada dia, de trás para frente a partir de hoje.
+    const qNow = inv.gone ? 0 : (inv.quantity ?? 0);
+    const after = (d: string) => mine.filter((t) => t.date > d).reduce((s, t) => s + signed(t), 0);
+    const price = (ms: number) => {
+      if (ms <= dayMs(points[0][0])) return points[0][1];
+      for (let i = 1; i < points.length; i++) {
+        const [d1, p1] = points[i];
+        const t1 = dayMs(d1);
+        if (ms <= t1) {
+          const [d0, p0] = points[i - 1];
+          const t0 = dayMs(d0);
+          return p0 * Math.pow(p1 / p0, (ms - t0) / Math.max(1, t1 - t0));
+        }
+      }
+      return points[points.length - 1][1];
+    };
+
+    const start = dayMs(points[0][0]);
+    const end = dayMs(points[points.length - 1][0]);
+    let total = 0;
+    let prev = price(start);
+    for (let ms = start + DAY; ms <= end; ms += DAY) {
+      const p = price(ms);
+      const held = Math.max(0, qNow - after(isoDay(ms - DAY)));
+      const g = held * (p - prev);
+      prev = p;
+      if (!g) continue;
+      const key = isoDay(ms).slice(0, 7);
+      byMonth[key] = (byMonth[key] ?? 0) + g;
+      total += g;
+    }
+    items.push({ investmentId: inv.investmentId, name: inv.name, bank: inv.bank, gone: inv.gone, gain: total, since: points[0][0], how: "cota" });
+  }
+  return { byMonth, items };
 }

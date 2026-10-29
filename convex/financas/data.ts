@@ -2,7 +2,7 @@ import { internalQueryGeneric as internalQuery, mutationGeneric as mutation, que
 import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from "convex/server";
 import { v, type GenericId } from "convex/values";
 import { assertServer } from "../guard";
-import { insights, monthly, netWorthSeries, recurring, type LeanTx, type Snapshot } from "./analytics";
+import { insights, investmentGains, monthly, netWorthSeries, recurring, type InvLite, type InvTxLite, type LeanTx, type Snapshot } from "./analytics";
 import { factsOf, loadOwners, NO_OWNERS } from "./sync";
 import { bestRuleFor, CATEGORIES, categoryOf, classify, GROUPS, norm, ruleMatches, type Custom, type Rule } from "./taxonomy";
 
@@ -30,7 +30,9 @@ async function buildOverview(ctx: GenericQueryCtx<GenericDataModel>) {
     const now = today();
     const items = await ctx.db.query("finItems").collect();
     const accounts = await ctx.db.query("finAccounts").collect();
-    const investments = (await ctx.db.query("finInvestments").collect()).filter((i) => !i.gone);
+    const allInvestments = await ctx.db.query("finInvestments").collect();
+    const investments = allInvestments.filter((i) => !i.gone);
+    const invTx = (await ctx.db.query("finInvTx").collect()) as unknown as InvTxLite[];
     const snapshots = (await ctx.db.query("finNetWorth").withIndex("by_date").collect()) as unknown as Snapshot[];
     const custom = (await ctx.db.query("finCategories").collect()) as unknown as Custom[];
     const goals = await ctx.db.query("finGoals").collect();
@@ -39,7 +41,9 @@ async function buildOverview(ctx: GenericQueryCtx<GenericDataModel>) {
     const from = new Date(Date.UTC(Number(now.slice(0, 4)) - 1, Number(now.slice(5, 7)) - 2, 1)).toISOString().slice(0, 10);
     const txs = (await ctx.db.query("finTx").withIndex("by_date", (q) => q.gte("date", from)).collect()).map(lean);
 
-    const months = monthly(txs, custom, now);
+    const gains = investmentGains(allInvestments as unknown as InvLite[], invTx, now);
+    const months = monthly(txs, custom, now).map((m) => ({ ...m, gains: gains.byMonth[m.key] ?? 0 }));
+    const gainOf = new Map(gains.items.map((g) => [g.investmentId, g]));
     const rec = recurring(txs, custom, now);
     const pending = txs.filter((t) => t.category === "a-classificar");
     const unclassified = { count: pending.length, amount: pending.reduce((s, t) => s - t.amount, 0) };
@@ -109,11 +113,15 @@ async function buildOverview(ctx: GenericQueryCtx<GenericDataModel>) {
         rateType: (i.rateType as string | undefined) ?? null,
         dueDate: (i.dueDate as string | undefined) ?? null,
         lastTwelveMonthsRate: (i.lastTwelveMonthsRate as number | undefined) ?? null,
+        gain: gainOf.get(i.investmentId as string)?.gain ?? null,
+        gainSince: gainOf.get(i.investmentId as string)?.since ?? null,
       })),
       netWorth: latest,
       series: netWorthSeries(snapshots, now),
       // Em texto: os nomes de grupo têm acento e o Convex só aceita chaves ASCII.
       monthsJson: JSON.stringify(months),
+      // Valorização dos que já foram resgatados (somem da lista de hoje).
+      gainsGone: gains.items.filter((g) => g.gone).map((g) => ({ name: g.name, bank: g.bank, gain: g.gain })),
       recurring: rec,
       unclassified,
       topExpenses: txs

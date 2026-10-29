@@ -67,6 +67,19 @@ type PluggyInvestment = {
   lastMonthRate?: number;
   lastTwelveMonthsRate?: number;
   status?: string;
+  quantity?: number;
+  value?: number;
+};
+type PluggyInvTx = {
+  id: string;
+  date?: string;
+  tradeDate?: string;
+  type?: string;
+  movementType?: string;
+  amount?: number;
+  netAmount?: number;
+  quantity?: number;
+  value?: number;
 };
 
 // Data do calendário em Brasília (sem horário de verão desde 2019).
@@ -189,6 +202,7 @@ const ref = {
   upsertTx: makeFunctionReference<"mutation">("financas/sync:upsertTx"),
   prunePending: makeFunctionReference<"mutation">("financas/sync:prunePending"),
   upsertInvestments: makeFunctionReference<"mutation">("financas/sync:upsertInvestments"),
+  replaceInvTx: makeFunctionReference<"mutation">("financas/sync:replaceInvTx"),
   snapshot: makeFunctionReference<"mutation">("financas/sync:snapshot"),
   items: makeFunctionReference<"query">("financas/data:itemsInternal"),
   syncAll: makeFunctionReference<"action">("financas/sync:syncAll"),
@@ -270,9 +284,8 @@ export const syncAll = internalAction({
         await ctx.runMutation(ref.upsertInvestments, {
           itemId: stored.itemId,
           bank,
-          rows: investments
-            .filter((i) => i.status !== "TOTAL_WITHDRAWAL")
-            .map((i) => ({
+          // Resgatados entram também (gone), para a valorização deles contar.
+          rows: investments.map((i) => ({
               investmentId: i.id,
               name: clean(i.name) ?? i.type ?? "Investimento",
               type: i.type ?? "OTHER",
@@ -286,9 +299,36 @@ export const syncAll = internalAction({
               dueDate: i.dueDate ? brDate(i.dueDate) : undefined,
               lastMonthRate: i.lastMonthRate ?? undefined,
               lastTwelveMonthsRate: i.lastTwelveMonthsRate ?? undefined,
+              quantity: i.quantity ?? undefined,
+              unitValue: i.value ?? undefined,
+              withdrawn: i.status === "TOTAL_WITHDRAWAL",
               raw: JSON.stringify(i).slice(0, 30000),
             })),
         });
+        for (const i of investments) {
+          try {
+            const txs: PluggyInvTx[] = [];
+            for (let page = 1; page <= 20; page++) {
+              const res = await get<{ results: PluggyInvTx[]; totalPages?: number }>(key, `/investments/${i.id}/transactions?pageSize=500&page=${page}`);
+              txs.push(...res.results);
+              if (!res.totalPages || page >= res.totalPages) break;
+            }
+            await ctx.runMutation(ref.replaceInvTx, {
+              investmentId: i.id,
+              rows: txs.map((t) => ({
+                txId: t.id,
+                date: brDate(t.tradeDate ?? t.date ?? Date.now()),
+                type: t.type ?? "OTHER",
+                movementType: t.movementType ?? undefined,
+                amount: t.netAmount ?? t.amount ?? 0,
+                quantity: t.quantity ?? undefined,
+                value: t.value ?? undefined,
+              })),
+            });
+          } catch {
+            // Sem movimentações deste investimento; a valorização dele fica de fora.
+          }
+        }
 
         await ctx.runMutation(ref.upsertItem, {
           itemId: stored.itemId,
@@ -460,6 +500,9 @@ const invRow = v.object({
   dueDate: v.optional(v.string()),
   lastMonthRate: v.optional(v.number()),
   lastTwelveMonthsRate: v.optional(v.number()),
+  quantity: v.optional(v.number()),
+  unitValue: v.optional(v.number()),
+  withdrawn: v.boolean(),
   raw: v.string(),
 });
 
@@ -468,14 +511,35 @@ export const upsertInvestments = internalMutation({
   handler: async (ctx, { itemId, bank, rows }) => {
     const now = Date.now();
     const seen = new Set(rows.map((r) => r.investmentId));
-    for (const r of rows) {
+    for (const { withdrawn, ...r } of rows) {
       const row = await ctx.db.query("finInvestments").withIndex("by_investmentId", (q) => q.eq("investmentId", r.investmentId)).unique();
-      const doc = { ...r, itemId, bank, updatedAt: now, gone: false };
+      const doc = { ...r, itemId, bank, updatedAt: now, gone: withdrawn };
       if (row) await ctx.db.replace(row._id, doc);
       else await ctx.db.insert("finInvestments", doc);
     }
     const all = await ctx.db.query("finInvestments").collect();
     for (const r of all) if (r.itemId === itemId && !seen.has(r.investmentId as string) && !r.gone) await ctx.db.patch(r._id, { gone: true });
+  },
+});
+
+export const replaceInvTx = internalMutation({
+  args: {
+    investmentId: v.string(),
+    rows: v.array(
+      v.object({
+        txId: v.string(),
+        date: v.string(),
+        type: v.string(),
+        movementType: v.optional(v.string()),
+        amount: v.number(),
+        quantity: v.optional(v.number()),
+        value: v.optional(v.number()),
+      }),
+    ),
+  },
+  handler: async (ctx, { investmentId, rows }) => {
+    for (const old of await ctx.db.query("finInvTx").withIndex("by_investment", (q) => q.eq("investmentId", investmentId)).collect()) await ctx.db.delete(old._id);
+    for (const r of rows) await ctx.db.insert("finInvTx", { investmentId, ...r });
   },
 });
 

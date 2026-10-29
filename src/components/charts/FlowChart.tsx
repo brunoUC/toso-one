@@ -5,7 +5,7 @@ import { brl } from "@/lib/format";
 import { Tooltip, type TipState } from "./Tooltip";
 import { useWidth } from "./useWidth";
 
-type Month = { label: string; income: number; expense: number; partial?: boolean };
+type Month = { label: string; income: number; expense: number; gains?: number; partial?: boolean };
 
 // Passo "redondo" (1, 2, 2,5 ou 5 × 10ⁿ).
 function niceStep(range: number, lines: number): number {
@@ -22,7 +22,7 @@ const short = (v: number) => {
 
 // Fluxo do mês espelhado num eixo só (tudo em R$ por mês): entradas sobem
 // do zero (azul), gastos descem (âmbar) e a linha é a variação patrimonial
-// do mês (entradas − gastos). O par azul/âmbar passou no validador de
+// do mês (entradas − gastos + valorização dos investimentos). O par azul/âmbar passou no validador de
 // daltonismo nos dois temas; a linha usa tinta neutra e tem legenda.
 export function FlowChart({ data }: { data: Month[] }) {
   const [ref, W] = useWidth<HTMLDivElement>();
@@ -31,7 +31,7 @@ export function FlowChart({ data }: { data: Month[] }) {
 
   const H = 300;
   const P = { t: 16, r: 8, b: 28, l: 56 };
-  const net = data.map((d) => d.income - d.expense);
+  const net = data.map((d) => d.income - d.expense + (d.gains ?? 0));
   const hi0 = Math.max(0, ...data.map((d) => d.income), ...net);
   const lo0 = Math.min(0, ...data.map((d) => -d.expense), ...net);
   const step = niceStep(hi0 - lo0, 6);
@@ -130,6 +130,7 @@ export function FlowChart({ data }: { data: Month[] }) {
               rows: [
                 { name: "Entradas", color: "var(--s1)", value: brl(d.income) },
                 { name: "Gastos", color: "var(--s2)", value: brl(d.expense) },
+                { name: "Valorização", color: "transparent", value: `${(d.gains ?? 0) >= 0 ? "+" : "−"}${brl(Math.abs(d.gains ?? 0))}` },
                 { name: "Variação", color: "var(--ink-1)", value: `${net[i] >= 0 ? "+" : "−"}${brl(Math.abs(net[i]))}` },
               ],
             });

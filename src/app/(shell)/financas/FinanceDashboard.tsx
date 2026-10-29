@@ -50,13 +50,19 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
   const total = netWorth?.total ?? 0;
   const series = data.series.map((p) => ({ label: p.label, netWorth: p.total }));
   // O primeiro mês da série só tem o último dia (31/10/2025): fica de fora.
-  const flow = months.slice(1).map((m) => ({ label: m.label, income: Math.max(0, m.income), expense: Math.max(0, m.expense), partial: m.partial }));
+  // Os gráficos de fluxo mostram o ano corrente, de janeiro até hoje.
+  const year = data.today.slice(0, 4);
+  const flow = months
+    .filter((m) => m.key.startsWith(year))
+    .map((m) => ({ label: m.label, income: Math.max(0, m.income), expense: Math.max(0, m.expense), gains: m.gains ?? 0, partial: m.partial }));
   let run = 0;
-  const cumulative = flow.map((m) => ({ label: m.label, netWorth: (run += m.income - m.expense) }));
+  const cumulative = flow.map((m) => ({ label: m.label, netWorth: (run += m.income - m.expense + m.gains) }));
   const flowIn = flow.reduce((t, m) => t + m.income, 0);
   const flowOut = flow.reduce((t, m) => t + m.expense, 0);
+  const flowGain = flow.reduce((t, m) => t + m.gains, 0);
+  const flowNet = flowIn - flowOut + flowGain;
   const closedFlow = flow.filter((m) => !m.partial);
-  const flowAvg = closedFlow.length ? closedFlow.reduce((t, m) => t + m.income - m.expense, 0) / closedFlow.length : 0;
+  const flowAvg = closedFlow.length ? closedFlow.reduce((t, m) => t + m.income - m.expense + m.gains, 0) / closedFlow.length : 0;
   const yearAgo = data.series.length >= 13 ? data.series[0] : null;
   const lastSync = Math.max(...data.items.map((i) => i.lastSyncAt ?? 0));
 
@@ -78,7 +84,9 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
   const groupMax = Math.max(1, ...groups.map((g) => Math.max(g.now, g.avg)));
 
   const allCats = [...CATEGORIES, ...custom];
-  const hasProfit = data.investments.some((i) => i.profit !== null);
+  const gainsGoneTotal = data.gainsGone.reduce((t, g) => t + g.gain, 0);
+  const firstGain = data.investments.map((i) => i.gainSince).filter(Boolean).sort()[0];
+  const invSince = firstGain ? `${firstGain.slice(8, 10)}/${firstGain.slice(5, 7)}/${firstGain.slice(2, 4)}` : "a compra";
   const focus = (group: string) => {
     const cats = allCats.filter((c) => c.group === group);
     const last12 = closed.slice(-12);
@@ -186,25 +194,29 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
               <b>{brl(flowOut)}</b>
             </div>
             <div>
-              <span>Variação</span>
-              <b className={flowIn - flowOut >= 0 ? "up" : "down"}>
-                {flowIn - flowOut >= 0 ? "+" : "−"}
-                {brl(Math.abs(flowIn - flowOut))}
+              <span>Valorização dos investimentos</span>
+              <b className={flowGain >= 0 ? "up" : "down"}>
+                {flowGain >= 0 ? "+" : "−"}
+                {brl(Math.abs(flowGain))}
               </b>
             </div>
             <div>
-              <span>Média/mês</span>
-              <b>
-                {flowAvg >= 0 ? "+" : "−"}
-                {brl(Math.abs(flowAvg))}
+              <span>Variação patrimonial</span>
+              <b className={flowNet >= 0 ? "up" : "down"}>
+                {flowNet >= 0 ? "+" : "−"}
+                {brl(Math.abs(flowNet))}
               </b>
+              <small>
+                {flowAvg >= 0 ? "+" : "−"}
+                {brl(Math.abs(flowAvg))}/mês
+              </small>
             </div>
           </div>
           <FlowChart data={flow} />
           <p className="card-sub flow-foot">
             {flow[0]?.label} a {flow[flow.length - 1]?.label}
-            {flow[flow.length - 1]?.partial ? " (* mês em andamento)" : ""}. Fora da conta: fatura paga, aplicações e resgates, transferências entre suas contas e
-            gastos da empresa. A variação não inclui o rendimento dos investimentos.
+            {flow[flow.length - 1]?.partial ? " (* mês em andamento)" : ""}. Variação = entradas − gastos + valorização dos investimentos (pelo preço da cota,
+            bruta de IR). Fora da conta: fatura paga, aplicações e resgates, transferências entre suas contas e gastos da empresa.
           </p>
         </div>
 
@@ -262,7 +274,7 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
           <p className="card-sub">
             {series.length > 1
               ? "Fim de cada mês, pela fotografia diária das contas, investimentos e cartões conectados."
-              : "Soma das variações de cada mês: quanto o patrimônio cresceu com o que sobrou, sem contar rendimento. O patrimônio medido aparece aqui quando houver um mês de fotografias diárias."}
+              : `Soma das variações de cada mês desde ${flow[0]?.label ?? "janeiro"}: o que sobrou mais o que os investimentos renderam. O patrimônio medido aparece aqui quando houver um mês de fotografias diárias.`}
           </p>
           {series.length > 1 ? <NetWorthChart data={series} /> : <NetWorthChart data={cumulative} name="Variação acumulada" />}
         </div>
@@ -402,16 +414,19 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
           <div className="card-title">
             <h3>Investimentos</h3>
             <span className="card-sub" style={{ margin: 0 }}>
-              {brl(netWorth?.investments ?? 0)}
+              {brl(netWorth?.investments ?? 0)} · valorizou +{brl(data.investments.reduce((t, i) => t + (i.gain ?? 0), 0) + gainsGoneTotal)}
             </span>
           </div>
-          <p className="card-sub">Valor bruto de hoje, como o banco informa</p>
+          <p className="card-sub">
+            Valor bruto de hoje. Valorizou = ganho pela cota desde {invSince}, sem contar aportes e resgates
+            {gainsGoneTotal ? `; mais ${brl(gainsGoneTotal)} nos que já foram resgatados (${data.gainsGone.map((g) => g.name.split(" ")[0]).join(", ")})` : ""}.
+          </p>
           <table className="data-table fin-mini">
             <thead>
               <tr>
                 <th>Aplicação</th>
                 <th>Hoje</th>
-                {hasProfit && <th>Rendeu</th>}
+                <th>Valorizou</th>
                 <th>12 meses</th>
               </tr>
             </thead>
@@ -429,7 +444,9 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
                       </small>
                     </td>
                     <td>{brl(i.balance)}</td>
-                    {hasProfit && <td className={i.profit !== null && i.profit < 0 ? "down" : undefined}>{i.profit !== null ? brl(i.profit) : "—"}</td>}
+                    <td className={i.gain !== null && i.gain < 0 ? "down" : i.gain ? "up" : undefined} title={i.gainSince ? `desde ${i.gainSince.split("-").reverse().join("/")}` : "desde a compra"}>
+                      {i.gain !== null ? `${i.gain >= 0 ? "+" : "−"}${brl(Math.abs(i.gain))}` : "—"}
+                    </td>
                     <td>{i.lastTwelveMonthsRate !== null ? `${(i.lastTwelveMonthsRate * (Math.abs(i.lastTwelveMonthsRate) < 1 ? 100 : 1)).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—"}</td>
                   </tr>
                 ))}

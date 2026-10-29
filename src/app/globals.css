@@ -1176,3 +1176,4 @@ a.origin-tab:hover { border-color: var(--ink-2); }
 .bud-status small.down { color: var(--down); }
 .bud-section .bud-status { padding-top: 4px; }
 .bud-status small.warn { color: var(--sand); }
+.flow-stats small { font-size: 11px; color: var(--ink-3); }

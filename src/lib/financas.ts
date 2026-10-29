@@ -46,6 +46,8 @@ export type FinInvestment = {
   rateType: string | null;
   dueDate: string | null;
   lastTwelveMonthsRate: number | null;
+  gain: number | null; // valorização desde gainSince (ou desde a compra)
+  gainSince: string | null;
 };
 
 export type FinGoal = {
@@ -75,6 +77,7 @@ export type Overview = {
   custom: Custom[];
   goals: FinGoal[];
   budget: { lineId: string; limit: number }[];
+  gainsGone: { name: string; bank: string; gain: number }[];
   rulesCount: number;
   txCount: number;
 };

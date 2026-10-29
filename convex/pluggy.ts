@@ -150,3 +150,29 @@ export const probe = internalAction({
     return out;
   },
 });
+
+// Movimentações de cada investimento (só tipos, datas e quantidade; sem
+// valores), para saber se dá para separar aporte de rendimento.
+export const investmentTxProbe = internalAction({
+  args: { itemId: v.string() },
+  handler: async (_ctx, { itemId }) => {
+    const key = await apiKey();
+    const inv = (await get<{ results: { id: string; type?: string; name?: string }[] }>(key, `/investments?itemId=${itemId}`)).results;
+    const out = [];
+    for (const i of inv) {
+      try {
+        const res = await get<{ results: Record<string, unknown>[]; total?: number }>(key, `/investments/${i.id}/transactions?pageSize=500`);
+        const types: Record<string, number> = {};
+        for (const t of res.results) {
+          const k = `${t.type ?? "?"}/${t.movementType ?? "?"}`;
+          types[k] = (types[k] ?? 0) + 1;
+        }
+        const dates = res.results.map((t) => String(t.date ?? "").slice(0, 10)).filter(Boolean).sort();
+        out.push({ type: i.type, total: res.total ?? res.results.length, types, from: dates[0] ?? null, to: dates[dates.length - 1] ?? null, keys: Object.keys(res.results[0] ?? {}) });
+      } catch (err) {
+        out.push({ type: i.type, error: (err as Error).message });
+      }
+    }
+    return out;
+  },
+});

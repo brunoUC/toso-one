@@ -112,10 +112,25 @@ export default defineSchema({
     dueDate: v.optional(v.string()),
     lastMonthRate: v.optional(v.number()),
     lastTwelveMonthsRate: v.optional(v.number()),
+    quantity: v.optional(v.number()), // cotas / títulos
+    unitValue: v.optional(v.number()), // preço da cota hoje
     raw: v.string(),
     updatedAt: v.number(),
-    gone: v.optional(v.boolean()), // não veio mais da Pluggy (resgatado)
+    gone: v.optional(v.boolean()), // resgatado (ou não veio mais da Pluggy)
   }).index("by_investmentId", ["investmentId"]),
+
+  // Compras, resgates e juros de cada investimento, com o preço da cota na
+  // data: é o que separa aporte de valorização.
+  finInvTx: defineTable({
+    investmentId: v.string(),
+    txId: v.string(),
+    date: v.string(),
+    type: v.string(), // BUY | SELL | INTEREST | ...
+    movementType: v.optional(v.string()), // CREDIT | DEBIT
+    amount: v.number(),
+    quantity: v.optional(v.number()),
+    value: v.optional(v.number()), // preço da cota
+  }).index("by_investment", ["investmentId"]),
 
   // Uma fotografia por dia: saldo das contas, investimentos e cartões.
   finNetWorth: defineTable({
