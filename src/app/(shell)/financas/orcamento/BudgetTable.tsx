@@ -19,6 +19,7 @@ export type BudgetRow = {
   avgHref: string; // extrato com os meses que entram na média
   spent: number;
   projected: number;
+  next: number | null; // projeção do mês seguinte (só na visão do mês atual)
   href: string;
 };
 
@@ -96,10 +97,48 @@ function LimitCell({ row, annual, onSaved }: { row: BudgetRow; annual: boolean; 
   );
 }
 
-export function BudgetTable({ rows, pace, periodLabel, annual }: { rows: BudgetRow[]; pace: number | null; periodLabel: string; annual: boolean }) {
+// Barra do realizado contra o limite e a frase do resultado. No ano, com a
+// projeção: já estourou / vai estourar / sobra no fim do ano.
+function Status({ spent, limit, pace, variable, projected }: { spent: number; limit: number; pace: number | null; variable: boolean; projected?: number }) {
+  const ratio = limit ? spent / limit : spent > 0 ? 2 : 0;
+  const over = spent > limit;
+  let text = over ? `estourou ${brl(spent - limit)}` : `sobram ${brl(limit - spent)}`;
+  let tone = over ? "down" : "";
+  if (projected !== undefined) {
+    if (over) text = `já estourou ${brl(spent - limit)}`;
+    else if (projected > limit) {
+      text = `vai estourar ${brl(projected - limit)}`;
+      tone = "warn";
+    } else text = `sobra ${brl(limit - projected)} no fim do ano`;
+  }
+  return (
+    <div className="bud-status">
+      <span className="bud-bar" title={`${Math.round(ratio * 100)}% do limite`}>
+        <i className={over ? "over" : undefined} style={{ width: `${Math.min(1, ratio) * 100}%` }} />
+        {variable && pace !== null && <em style={{ left: `${pace * 100}%` }} />}
+      </span>
+      <small className={tone || undefined}>{text}</small>
+    </div>
+  );
+}
+
+export function BudgetTable({
+  rows,
+  pace,
+  periodLabel,
+  annual,
+  projectionLabel,
+}: {
+  rows: BudgetRow[];
+  pace: number | null;
+  periodLabel: string;
+  annual: boolean;
+  projectionLabel: string | null; // "nov/26" (mês seguinte) ou "2026" (ano); null = sem projeção
+}) {
   const router = useRouter();
   const sections = [...new Set(rows.map((r) => r.section))];
   const sum = (list: BudgetRow[], f: (r: BudgetRow) => number) => list.reduce((s, r) => s + f(r), 0);
+  const proj = (r: BudgetRow) => (annual ? r.projected : (r.next ?? 0));
 
   return (
     <div className="card span-12">
@@ -110,40 +149,46 @@ export function BudgetTable({ rows, pace, periodLabel, annual }: { rows: BudgetR
         </span>
       </div>
       <p className="card-sub">
-        Barra = {periodLabel}
-        {pace !== null ? `. Traço = onde um gasto variável deveria estar hoje (${Math.round(pace * 100)}% ${annual ? "do ano" : "do mês"})` : ""}. Média por mês,
-        dos meses fechados.
+        {annual
+          ? `Realizado até hoje contra o limite do ano. ${projectionLabel ? `Projeção = se continuar na mesma média do ano até ${projectionLabel}.` : ""}`
+          : `${projectionLabel ? `Projeção de ${projectionLabel} pelo ritmo de agora: variáveis no passo deste mês, fixos pelo que já foi pago, reservas pela média dos últimos 3 meses. ` : ""}${
+              pace !== null ? `Traço na barra = onde um gasto variável deveria estar hoje (${Math.round(pace * 100)}% do mês). ` : ""
+            }Média por mês dos meses fechados.`}
       </p>
       <div className="bud-wrap">
         <table className="data-table bud">
           <thead>
             <tr>
               <th>Linha</th>
-              <th>{annual ? "Limite no ano" : "Limite"}</th>
-              <th>Média/mês</th>
-              <th className="bud-bar-h">{periodLabel}</th>
-              <th>{pace !== null ? "Projeção" : "Fechou"}</th>
+              {projectionLabel && !annual && <th>Projeção {projectionLabel}</th>}
+              <th>{annual ? `Limite ${periodLabel.slice(0, 4)}` : "Limite"}</th>
+              <th>{annual ? `Realizado ${periodLabel.slice(5) || ""}`.trim() : `Gasto ${periodLabel}`}</th>
+              {projectionLabel && annual && <th>Projeção {projectionLabel}</th>}
+              <th className="bud-bar-h">{annual ? "Resultado" : "Situação"}</th>
             </tr>
           </thead>
           <tbody>
             {sections.map((section) => {
               const list = rows.filter((r) => r.section === section);
+              const lim = sum(list, (r) => r.limitPeriod);
+              const spent = sum(list, (r) => r.spent);
               return (
                 <Fragment key={section}>
                   <tr className="bud-section">
                     <td>{section}</td>
-                    <td>{brl(sum(list, (r) => r.limitPeriod))}</td>
-                    <td>{brl(sum(list, (r) => r.avg))}</td>
+                    {projectionLabel && !annual && <td>{brl(sum(list, proj))}</td>}
                     <td>
-                      <div className="bud-bar-in">
-                        <span className="bud-spent">{brl(sum(list, (r) => r.spent))}</span>
-                      </div>
+                      {brl(lim)}
+                      {!annual && <small className="bud-sub">média {brl(sum(list, (r) => r.avg))}</small>}
                     </td>
-                    <td>{brl(sum(list, (r) => r.projected))}</td>
+                    <td>{brl(spent)}</td>
+                    {projectionLabel && annual && <td>{brl(sum(list, proj))}</td>}
+                    <td>
+                      <Status spent={spent} limit={lim} pace={pace} variable={false} projected={annual && projectionLabel ? sum(list, proj) : undefined} />
+                    </td>
                   </tr>
                   {list.map((r) => {
-                    const ratio = r.limitPeriod ? r.spent / r.limitPeriod : r.spent > 0 ? 2 : 0;
-                    const over = r.projected > r.limitPeriod * 1.02;
+                    const p = proj(r);
                     return (
                       <tr key={r.id} className="bud-row">
                         <td>
@@ -153,24 +198,22 @@ export function BudgetTable({ rows, pace, periodLabel, annual }: { rows: BudgetR
                           <small className="bud-kind"> · {r.kind}</small>
                           {r.note && <small className="bud-note">{r.note}</small>}
                         </td>
+                        {projectionLabel && !annual && <td className={p > r.limitPeriod * 1.02 ? "down" : undefined}>{brl(p)}</td>}
                         <td>
                           <LimitCell row={r} annual={annual} onSaved={() => router.refresh()} />
+                          {!annual && (
+                            <Link href={r.avgHref} className={`bud-avg bud-sub${r.avg > r.limit * 1.1 ? " down" : ""}`} title={`Ver os gastos que formam a média de ${r.name}`}>
+                              média {brl(r.avg)}
+                            </Link>
+                          )}
                         </td>
-                        <td className={r.avg > r.limit * 1.1 ? "down" : undefined}>
-                          <Link href={r.avgHref} className="bud-avg" title={`Ver os gastos que formam a média de ${r.name}`}>
-                            {brl(r.avg)}
-                          </Link>
+                        <td>
+                          <b className="bud-spent">{brl(r.spent)}</b>
                         </td>
-                        <td className="bud-bar-c">
-                          <div className="bud-bar-in">
-                            <span className="bud-bar" title={`${brl(r.spent)} de ${brl(r.limitPeriod)}`}>
-                              <i className={ratio > 1 ? "over" : undefined} style={{ width: `${Math.min(1, ratio) * 100}%` }} />
-                              {r.kind === "variável" && pace !== null && <em style={{ left: `${pace * 100}%` }} />}
-                            </span>
-                            <span className="bud-spent">{brl(r.spent)}</span>
-                          </div>
+                        {projectionLabel && annual && <td className={p > r.limitPeriod * 1.02 ? "down" : undefined}>{brl(p)}</td>}
+                        <td>
+                          <Status spent={r.spent} limit={r.limitPeriod} pace={pace} variable={r.kind === "variável" && !annual} projected={annual && projectionLabel ? p : undefined} />
                         </td>
-                        <td className={over ? "down" : "up"}>{brl(r.projected)}</td>
                       </tr>
                     );
                   })}
@@ -179,14 +222,22 @@ export function BudgetTable({ rows, pace, periodLabel, annual }: { rows: BudgetR
             })}
             <tr className="bud-total">
               <td>Total</td>
-              <td>{brl(sum(rows, (r) => r.limitPeriod))}</td>
-              <td>{brl(sum(rows, (r) => r.avg))}</td>
+              {projectionLabel && !annual && <td>{brl(sum(rows, proj))}</td>}
               <td>
-                <div className="bud-bar-in">
-                  <span className="bud-spent">{brl(sum(rows, (r) => r.spent))}</span>
-                </div>
+                {brl(sum(rows, (r) => r.limitPeriod))}
+                {!annual && <small className="bud-sub">média {brl(sum(rows, (r) => r.avg))}</small>}
               </td>
-              <td>{brl(sum(rows, (r) => r.projected))}</td>
+              <td>{brl(sum(rows, (r) => r.spent))}</td>
+              {projectionLabel && annual && <td>{brl(sum(rows, proj))}</td>}
+              <td>
+                <Status
+                  spent={sum(rows, (r) => r.spent)}
+                  limit={sum(rows, (r) => r.limitPeriod)}
+                  pace={pace}
+                  variable={false}
+                  projected={annual && projectionLabel ? sum(rows, proj) : undefined}
+                />
+              </td>
             </tr>
           </tbody>
         </table>

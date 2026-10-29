@@ -1165,3 +1165,14 @@ a.origin-tab:hover { border-color: var(--ink-2); }
 .flow-stats b.up { color: var(--up); } .flow-stats b.down { color: var(--down); }
 .flow-foot { margin: 8px 0 0; }
 @media (max-width: 640px) { .flow-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Orçamento: colunas Projeção · Limite (média) · Gasto · Situação */
+.bud .bud-sub { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--ink-3); }
+.bud a.bud-sub.down { color: var(--down); }
+.bud .bud-spent { font-weight: 500; }
+.bud-status { display: grid; gap: 4px; justify-items: end; padding-top: 5px; }
+.bud-status .bud-bar { width: 100%; min-width: 120px; flex: none; }
+.bud-status small { font-size: 11px; color: var(--ink-3); }
+.bud-status small.down { color: var(--down); }
+.bud-section .bud-status { padding-top: 4px; }
+.bud-status small.warn { color: var(--sand); }
