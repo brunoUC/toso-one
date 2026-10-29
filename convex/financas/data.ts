@@ -321,7 +321,7 @@ export const addCategory = mutation({
     const slug = "u-" + norm(clean).toLowerCase().replace(/\s+/g, "-");
     const existing = await ctx.db.query("finCategories").withIndex("by_slug", (q) => q.eq("slug", slug)).unique();
     if (existing) return slug;
-    const kind = group === "Receitas" ? "income" : group === "Movimentações internas" ? "internal" : group === "Empresa (stemOS)" ? "business" : "expense";
+    const kind = group === "Receitas" ? "income" : group === "Movimentações internas" ? "internal" : group === "Empresa" ? "business" : "expense";
     await ctx.db.insert("finCategories", { slug, name: clean, group, kind });
     return slug;
   },

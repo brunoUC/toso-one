@@ -70,7 +70,7 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
     .map((p, i) => ({ name: p.name, slot: i + 1, pct: Math.round((p.value / gross) * 100), value: p.value }));
 
   // Gastos por grupo neste mês contra a média dos 3 meses fechados.
-  const groups = GROUPS.filter((g) => g !== "Receitas" && g !== "Movimentações internas" && g !== "Empresa (stemOS)")
+  const groups = GROUPS.filter((g) => g !== "Receitas" && g !== "Movimentações internas" && g !== "Empresa")
     .map((g) => ({ group: g, now: current.byGroup[g] ?? 0, avg: avg((m) => m.byGroup[g] ?? 0) }))
     .filter((g) => g.now > 0 || g.avg > 0)
     .sort((a, b) => Math.max(b.now, b.avg) - Math.max(a.now, a.avg));
@@ -590,7 +590,7 @@ function Goals({ goals, onChange }: { goals: FinGoal[]; onChange: () => void }) 
             <label className="ed-field">
               Grupo
               <select className="ed-input" value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value })}>
-                {GROUPS.filter((g) => g !== "Receitas" && g !== "Movimentações internas" && g !== "Empresa (stemOS)").map((g) => (
+                {GROUPS.filter((g) => g !== "Receitas" && g !== "Movimentações internas" && g !== "Empresa").map((g) => (
                   <option key={g} value={`grupo:${g}`}>
                     {g}
                   </option>

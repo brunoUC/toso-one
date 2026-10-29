@@ -7,8 +7,9 @@
 // internal: dinheiro que só mudou de lugar (entre contas, fatura, aplicação).
 //           Fica fora de gastos e receitas, senão a fatura do cartão contaria
 //           as compras pela segunda vez.
-// business: gasto da stemOS/robótica que passou pelo cartão pessoal. Fica
-//           fora dos gastos pessoais e do orçamento, mas aparece no extrato.
+// business: gasto da empresa (stemOS, ou o que a empresa vai reembolsar) que
+//           passou pela conta pessoal. Fica fora dos gastos pessoais, das
+//           receitas e do orçamento, mas aparece no extrato.
 export type Kind = "expense" | "income" | "internal" | "business";
 
 export type Category = { slug: string; name: string; group: string; kind: Kind; tax?: boolean };
@@ -29,7 +30,7 @@ export const GROUPS = [
   "Outros gastos",
   "Receitas",
   "Movimentações internas",
-  "Empresa (stemOS)",
+  "Empresa",
 ] as const;
 
 const c = (group: string, kind: Kind, list: [string, string, true?][]): Category[] =>
@@ -131,7 +132,12 @@ export const CATEGORIES: Category[] = [
     ["reembolsos", "Reembolsos e estornos"],
     ["outras-receitas", "Outras receitas"],
   ]),
-  ...c("Empresa (stemOS)", "business", [["stemos", "stemOS e robótica"]]),
+  // Reembolso da empresa: o gasto pago por mim e a devolução da empresa vão
+  // para a mesma categoria; a soma dela é o que ainda falta receber.
+  ...c("Empresa", "business", [
+    ["stemos", "stemOS e robótica"],
+    ["reembolso-empresa", "Reembolso da empresa"],
+  ]),
   ...c("Movimentações internas", "internal", [
     ["entre-contas", "Entre minhas contas"],
     ["pagamento-fatura", "Pagamento de fatura"],

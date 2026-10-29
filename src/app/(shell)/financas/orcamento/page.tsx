@@ -106,7 +106,12 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
   const avgLines = rows.reduce((s, r) => s + r.avg, 0);
   const avgLoose = looseRows.reduce((s, [, e]) => s + e.avg, 0);
   const avgIncome = closed.reduce((s, m) => s + m.income, 0) / Math.max(1, closed.length);
-  const stemosPeriod = period.reduce((s, m) => s + (m.business ?? 0), 0);
+  const biz = (m: (typeof months)[number], slug: string) => m.businessByCategory?.[slug] ?? 0;
+  const stemosPeriod = period.reduce((s, m) => s + biz(m, "stemos"), 0);
+  // Reembolso: o que paguei pela empresa menos o que ela já devolveu, somando
+  // tudo até o fim do período (o que sobra é o que falta receber).
+  const toReceive = usable.filter((m) => m.key <= lastKey).reduce((s, m) => s + biz(m, "reembolso-empresa"), 0);
+  const reimbPaid = period.reduce((s, m) => s + Math.max(0, biz(m, "reembolso-empresa")), 0);
   const inRange = total >= BUDGET_TARGET.min && total <= BUDGET_TARGET.max;
 
   // Navegação: mês ou ano anterior/seguinte que tenham dados.
@@ -197,9 +202,14 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
           </div>
         </div>
         <div className="card tile span-3">
-          <div className="label">stemOS no cartão pessoal</div>
-          <div className="value">{brl(stemosPeriod)}</div>
-          <div className="delta">em {label}, fora do orçamento</div>
+          <div className="label">Reembolso da empresa a receber</div>
+          <div className="value">{brl(Math.max(0, toReceive))}</div>
+          <div className="delta">
+            <Link href={`/financas/extrato?cat=reembolso-empresa&de=${usable[0]?.key ?? current.key}&ate=${lastKey}`}>
+              {reimbPaid > 0 ? `${brl(reimbPaid)} adiantados em ${label}` : "ver reembolsos"}
+            </Link>
+            {stemosPeriod > 0 ? ` · stemOS ${brl(stemosPeriod)}` : ""} · fora do orçamento
+          </div>
         </div>
 
         <BudgetTable rows={rows} pace={isNow ? pace : null} periodLabel={label} annual={annual} />
