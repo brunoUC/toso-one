@@ -75,6 +75,7 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
       spent,
       projected,
       href: `/financas/extrato?mes=${lastKey}&linha=${line.id}`,
+      avgHref: `/financas/extrato?linha=${line.id}&de=${closed[0]?.key ?? current.key}&ate=${closed[closed.length - 1]?.key ?? current.key}`,
     };
   });
 

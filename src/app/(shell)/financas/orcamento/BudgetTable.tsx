@@ -16,6 +16,7 @@ export type BudgetRow = {
   limitPeriod: number; // no período mostrado (mês ou ano)
   defaultLimit: number;
   avg: number;
+  avgHref: string; // extrato com os meses que entram na média
   spent: number;
   projected: number;
   href: string;
@@ -155,7 +156,11 @@ export function BudgetTable({ rows, pace, periodLabel, annual }: { rows: BudgetR
                         <td>
                           <LimitCell row={r} annual={annual} onSaved={() => router.refresh()} />
                         </td>
-                        <td className={r.avg > r.limit * 1.1 ? "down" : undefined}>{brl(r.avg)}</td>
+                        <td className={r.avg > r.limit * 1.1 ? "down" : undefined}>
+                          <Link href={r.avgHref} className="bud-avg" title={`Ver os gastos que formam a média de ${r.name}`}>
+                            {brl(r.avg)}
+                          </Link>
+                        </td>
                         <td className="bud-bar-c">
                           <div className="bud-bar-in">
                             <span className="bud-bar" title={`${brl(r.spent)} de ${brl(r.limitPeriod)}`}>

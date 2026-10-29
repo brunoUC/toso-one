@@ -1148,3 +1148,9 @@ a.origin-tab:hover { border-color: var(--ink-2); }
 .bud-edit { flex-direction: row; align-items: center; gap: 5px; }
 .bud-edit .ed-input { height: 30px; }
 .ed-input.bad { border-color: var(--down); }
+.bud .bud-avg { position: relative; z-index: 1; color: inherit; font-weight: 400; text-decoration: underline; text-decoration-color: var(--hairline-strong); text-underline-offset: 3px; }
+.bud .bud-avg:hover { text-decoration-color: currentColor; }
+.fin-range { margin-bottom: 14px; overflow-x: auto; }
+.fin-range table { margin: 0; min-width: 640px; }
+.fin-range th, .fin-range td { text-align: center !important; white-space: nowrap; }
+.fin-range th a { text-decoration: none; color: inherit; }

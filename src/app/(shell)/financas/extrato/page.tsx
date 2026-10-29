@@ -10,7 +10,10 @@ import { FinNav } from "../FinNav";
 
 export const metadata: Metadata = { title: "Extrato · Finanças" };
 
-type Search = { mes?: string; conta?: string; tipo?: string; cat?: string; linha?: string; q?: string; dir?: string };
+type Search = { mes?: string; de?: string; ate?: string; conta?: string; tipo?: string; cat?: string; linha?: string; q?: string; dir?: string };
+
+const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const monthLabelShort = (k: string) => `${MONTHS[Number(k.slice(5, 7)) - 1]}/${k.slice(2, 4)}`;
 
 const thisMonth = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 7);
 
@@ -21,9 +24,13 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
   const q = (sp.q ?? "").trim().toLowerCase();
   // ?linha=<id>: as categorias de uma linha do orçamento.
   const line = BUDGET.find((l) => l.id === sp.linha) ?? null;
-  // Com busca, procura no último ano inteiro; sem, mostra o mês.
-  const from = q ? `${shiftMonth(thisMonth(), -12)}-01` : `${month}-01`;
-  const { rows, accounts, custom } = await getTxList(from, q ? lastDay(thisMonth()) : lastDay(month));
+  // ?de=AAAA-MM&ate=AAAA-MM: um intervalo de meses (o que entra na média do
+  // orçamento). Com busca, o último ano inteiro. Sem nada, o mês.
+  const isMonth = (v?: string) => /^\d{4}-\d{2}$/.test(v ?? "");
+  const range = isMonth(sp.de) && isMonth(sp.ate) && sp.de! <= sp.ate! ? { de: sp.de!, ate: sp.ate! } : null;
+  const from = range ? `${range.de}-01` : q ? `${shiftMonth(thisMonth(), -12)}-01` : `${month}-01`;
+  const to = range ? lastDay(range.ate) : q ? lastDay(thisMonth()) : lastDay(month);
+  const { rows, accounts, custom } = await getTxList(from, to);
 
   const filtered = rows.filter((t) => {
     if (sp.conta && t.accountId !== sp.conta) return false;
@@ -53,6 +60,15 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
       byCat.set(cat.slug, (byCat.get(cat.slug) ?? 0) - t.amount);
     } else if (cat.kind === "income") income += t.amount;
   }
+  // Total de cada mês do intervalo (os meses sem gasto contam como zero).
+  const rangeMonths: { key: string; total: number }[] = [];
+  if (range) {
+    for (let k = range.de; k <= range.ate; k = shiftMonth(k, 1)) rangeMonths.push({ key: k, total: 0 });
+    for (const t of filtered) {
+      const m = rangeMonths.find((r) => r.key === t.date.slice(0, 7));
+      if (m && categoryOf(t.category, custom).kind === "expense") m.total -= t.amount;
+    }
+  }
   const topCats = [...byCat.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 6);
 
   const link = (patch: Partial<Search>) => {
@@ -72,7 +88,12 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
       <div className="fin-head">
         <div>
           <p className="hero-label">Extrato de todos os bancos</p>
-          {q ? (
+          {range ? (
+            <h1 className="fin-month">
+              {line ? `${line.name}: ` : ""}
+              {monthLabelShort(range.de)} a {monthLabelShort(range.ate)}
+            </h1>
+          ) : q ? (
             <h1 className="fin-month">“{sp.q}” nos últimos 12 meses</h1>
           ) : (
             <h1 className="fin-month">
@@ -84,6 +105,7 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
           <div className="hero-delta">
             <span>{filtered.length} movimentações</span>
             <span className="down">Gastos {brlCents(spend)}</span>
+            {range && <span>média {brlCents(spend / rangeMonths.length)}/mês em {rangeMonths.length} meses</span>}
             <span className="up">Receitas {brlCents(income)}</span>
           </div>
         </div>
@@ -92,6 +114,12 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
       <form className="card fin-filters" action="/financas/extrato">
         <input type="hidden" name="mes" value={month} />
         {line && <input type="hidden" name="linha" value={line.id} />}
+        {range && (
+          <>
+            <input type="hidden" name="de" value={range.de} />
+            <input type="hidden" name="ate" value={range.ate} />
+          </>
+        )}
         <LiveSearch initial={sp.q ?? ""} />
         <select className="ed-input" name="conta" defaultValue={sp.conta ?? ""}>
           <option value="">Todas as contas</option>
@@ -147,6 +175,29 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
           <Link className="chip" href="/financas/orcamento">
             ← voltar ao orçamento
           </Link>
+        </div>
+      )}
+
+      {range && (
+        <div className="card fin-range">
+          <table className="data-table fin-mini">
+            <thead>
+              <tr>
+                {rangeMonths.map((m) => (
+                  <th key={m.key}>
+                    <Link href={link({ de: undefined, ate: undefined, mes: m.key })}>{monthLabelShort(m.key)}</Link>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                {rangeMonths.map((m) => (
+                  <td key={m.key}>{m.total ? brlCents(m.total).replace(/,\d{2}$/, "") : "—"}</td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
         </div>
       )}
 
