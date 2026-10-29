@@ -1145,8 +1145,6 @@ a.origin-tab:hover { border-color: var(--ink-2); }
 .bud-limit button span { color: var(--ink-3); font-size: 11px; }
 .bud-limit button:hover { border-color: var(--accent); background: var(--accent-soft); }
 .bud-limit small, .bud-edit small { color: var(--ink-3); font-size: 11px; }
-.bud-limit .bud-reset { border: 0; padding: 0; margin: 0; font-size: 11px; color: var(--ink-3); text-decoration: underline; text-underline-offset: 2px; }
-.bud-limit .bud-reset:hover { background: none; color: var(--ink-1); }
 .bud-edit { flex-direction: row; align-items: center; gap: 5px; }
 .bud-edit .ed-input { height: 30px; }
 .ed-input.bad { border-color: var(--down); }

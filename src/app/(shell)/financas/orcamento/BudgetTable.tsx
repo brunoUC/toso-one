@@ -84,7 +84,6 @@ function LimitCell({ row, annual, onSaved }: { row: BudgetRow; annual: boolean; 
       </span>
     );
   }
-  const changed = row.limit !== row.defaultLimit;
   return (
     <span className="bud-limit">
       <button type="button" onClick={() => setEditing(true)} title="Mudar o limite mensal">
@@ -92,11 +91,6 @@ function LimitCell({ row, annual, onSaved }: { row: BudgetRow; annual: boolean; 
         <span aria-hidden="true">✎</span>
       </button>
       {annual && <small>{brl(row.limit)}/mês</small>}
-      {changed && (
-        <button type="button" className="bud-reset" onClick={() => save(null)} title={`Voltar para ${brl(row.defaultLimit)}/mês`}>
-          padrão {brl(row.defaultLimit)}
-        </button>
-      )}
       {error && <small className="down">não salvou</small>}
     </span>
   );
