@@ -132,11 +132,13 @@ export function BudgetTable({ rows, pace, monthLabel }: { rows: BudgetRow[]; pac
                         <td className={r.avg > r.limit * 1.1 ? "down" : undefined}>{brl(r.avg)}</td>
                         <td>{brl(r.median)}</td>
                         <td className="bud-bar-c">
-                          <span className="bud-bar" title={`${brl(r.spent)} de ${brl(r.limit)}`}>
-                            <i className={ratio > 1 ? "over" : undefined} style={{ width: `${Math.min(1, ratio) * 100}%` }} />
-                            {r.kind === "variável" && <em style={{ left: `${pace * 100}%` }} />}
-                          </span>
-                          <span className="bud-spent">{brl(r.spent)}</span>
+                          <div className="bud-bar-in">
+                            <span className="bud-bar" title={`${brl(r.spent)} de ${brl(r.limit)}`}>
+                              <i className={ratio > 1 ? "over" : undefined} style={{ width: `${Math.min(1, ratio) * 100}%` }} />
+                              {r.kind === "variável" && <em style={{ left: `${pace * 100}%` }} />}
+                            </span>
+                            <span className="bud-spent">{brl(r.spent)}</span>
+                          </div>
                         </td>
                         <td className={over ? "down" : "up"}>{brl(r.projected)}</td>
                       </tr>
