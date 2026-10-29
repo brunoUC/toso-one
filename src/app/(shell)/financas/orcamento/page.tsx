@@ -4,7 +4,7 @@ import { requireSession } from "@/lib/auth";
 import { BUDGET, BUDGET_TARGET, LINE_OF } from "@/lib/fin-budget";
 import { categoryOf } from "@/lib/fin-taxonomy";
 import { brl } from "@/lib/format";
-import { getOverview } from "@/lib/financas";
+import { getOverview, monthName } from "@/lib/financas";
 import { FinNav } from "../FinNav";
 import { BudgetTable, type BudgetRow } from "./BudgetTable";
 
@@ -16,8 +16,11 @@ const median = (v: number[]) => {
   return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : 0;
 };
 
-export default async function OrcamentoPage() {
+type Search = { visao?: string; mes?: string; ano?: string };
+
+export default async function OrcamentoPage({ searchParams }: { searchParams: Promise<Search> }) {
   await requireSession("/financas/orcamento");
+  const sp = await searchParams;
   const data = await getOverview().catch(() => null);
   if (!data) {
     return (
@@ -37,18 +40,32 @@ export default async function OrcamentoPage() {
   // último dia (31/10/2025), então fica de fora.
   const closed = months.filter((m) => !m.partial).slice(1);
   const [y, mo, d] = data.today.split("-").map(Number);
-  const daysInMonth = new Date(Date.UTC(y, mo, 0)).getUTCDate();
-  const pace = d / daysInMonth;
   const override = new Map(data.budget.map((b) => [b.lineId, b.limit]));
+  const usable = months.slice(1); // meses com dado de verdade
+
+  // Período escolhido: um mês (padrão, o atual) ou um ano.
+  const annual = sp.visao === "ano";
+  const years = [...new Set(usable.map((m) => m.key.slice(0, 4)))];
+  const year = annual && years.includes(sp.ano ?? "") ? sp.ano! : String(y);
+  const monthKey = !annual && usable.some((m) => m.key === sp.mes) ? sp.mes! : current.key;
+  const period = annual ? usable.filter((m) => m.key.startsWith(year)) : usable.filter((m) => m.key === monthKey);
+  const isNow = annual ? year === String(y) : monthKey === current.key;
+  const dayOfYear = Math.floor((Date.UTC(y, mo - 1, d) - Date.UTC(y, 0, 1)) / 86400_000) + 1;
+  const pace = !isNow ? 1 : annual ? dayOfYear / (y % 4 === 0 ? 366 : 365) : d / new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  // Ano corrente: limite de 12 meses. Ano anterior: só os meses que têm dado.
+  const mult = annual ? (isNow ? 12 : period.length) : 1;
+  const label = annual ? (isNow ? `${year} até hoje` : `${year} (${period[0]?.label.split("/")[0]}–${period[period.length - 1]?.label.split("/")[0]})`) : (period[0]?.label ?? current.label);
+  const lastKey = period[period.length - 1]?.key ?? current.key;
 
   const rows: BudgetRow[] = BUDGET.map((line) => {
     const sum = (m: (typeof months)[number]) => line.categories.reduce((s, c) => s + (m.byCategory[c] ?? 0), 0);
     const hist = closed.map(sum);
-    const spent = sum(current);
+    const spent = period.reduce((s, m) => s + sum(m), 0);
     const limit = override.get(line.id) ?? line.limit;
-    // Fixos e reservas: o mês fecha no limite (ou no que já passou dele).
-    // Variáveis: o ritmo de hoje esticado até o fim do mês.
-    const projected = line.kind === "variável" ? (pace > 0.15 ? spent / pace : Math.max(spent, limit)) : Math.max(spent, limit);
+    const limitPeriod = limit * mult;
+    // Fixos e reservas: o período fecha no limite (ou no que já passou dele).
+    // Variáveis: o ritmo de hoje esticado até o fim do período.
+    const projected = line.kind === "variável" ? (pace > 0.15 ? spent / pace : Math.max(spent, limitPeriod)) : Math.max(spent, limitPeriod);
     return {
       id: line.id,
       section: line.section,
@@ -57,50 +74,96 @@ export default async function OrcamentoPage() {
       note: line.note,
       categories: line.categories.map((c) => categoryOf(c, custom).name),
       limit,
+      limitPeriod,
       defaultLimit: line.limit,
       avg: hist.length ? hist.reduce((a, b) => a + b, 0) / hist.length : 0,
       median: median(hist),
       spent,
       projected,
-      href: `/financas/extrato?mes=${current.key}&linha=${line.id}`,
+      href: `/financas/extrato?mes=${lastKey}&linha=${line.id}`,
     };
   });
 
   // Gastos que não caem em nenhuma linha (a classificar, categorias novas).
   const loose = new Map<string, { now: number; avg: number }>();
-  for (const m of [...closed, current]) {
+  for (const m of closed) {
     for (const [slug, v] of Object.entries(m.byCategory)) {
       if (LINE_OF.has(slug)) continue;
       const e = loose.get(slug) ?? { now: 0, avg: 0 };
-      if (m === current) e.now += v;
-      else e.avg += v / closed.length;
+      e.avg += v / closed.length;
+      loose.set(slug, e);
+    }
+  }
+  for (const m of period) {
+    for (const [slug, v] of Object.entries(m.byCategory)) {
+      if (LINE_OF.has(slug)) continue;
+      const e = loose.get(slug) ?? { now: 0, avg: 0 };
+      e.now += v;
       loose.set(slug, e);
     }
   }
   const looseRows = [...loose.entries()].filter(([, e]) => Math.abs(e.now) > 1 || Math.abs(e.avg) > 1).sort((a, b) => b[1].avg - a[1].avg);
 
   const total = rows.reduce((s, r) => s + r.limit, 0);
+  const totalPeriod = total * mult;
   const spentNow = rows.reduce((s, r) => s + r.spent, 0);
   const projected = rows.reduce((s, r) => s + r.projected, 0);
   const avgLines = rows.reduce((s, r) => s + r.avg, 0);
   const avgLoose = looseRows.reduce((s, [, e]) => s + e.avg, 0);
   const avgIncome = closed.reduce((s, m) => s + m.income, 0) / Math.max(1, closed.length);
-  const stemosYear = closed.reduce((s, m) => s + (m.business ?? 0), 0);
+  const stemosPeriod = period.reduce((s, m) => s + (m.business ?? 0), 0);
   const inRange = total >= BUDGET_TARGET.min && total <= BUDGET_TARGET.max;
+
+  // Navegação: mês ou ano anterior/seguinte que tenham dados.
+  const keys = usable.map((m) => m.key);
+  const i = annual ? years.indexOf(year) : keys.indexOf(monthKey);
+  const list = annual ? years : keys;
+  const href = (v: string) => (annual ? `/financas/orcamento?visao=ano&ano=${v}` : `/financas/orcamento?mes=${v}`);
+  const prev = i > 0 ? href(list[i - 1]) : null;
+  const next = i < list.length - 1 ? href(list[i + 1]) : null;
+  const unit = annual ? "do ano" : "do mês";
 
   return (
     <main className="page">
       <div className="fin-top">
         <FinNav active="/financas/orcamento" />
+        <div className="bud-period">
+          <div className="seg" role="group" aria-label="Visão">
+            <Link href={`/financas/orcamento?mes=${monthKey === current.key || annual ? current.key : monthKey}`} aria-current={!annual ? "page" : undefined}>
+              Mês
+            </Link>
+            <Link href={`/financas/orcamento?visao=ano&ano=${annual ? year : monthKey.slice(0, 4)}`} aria-current={annual ? "page" : undefined}>
+              Ano
+            </Link>
+          </div>
+          <div className="bud-nav">
+            {prev ? (
+              <Link href={prev} aria-label="Anterior">
+                ‹
+              </Link>
+            ) : (
+              <span aria-hidden="true">‹</span>
+            )}
+            <b>{annual ? year : monthName(monthKey)}</b>
+            {next ? (
+              <Link href={next} aria-label="Seguinte">
+                ›
+              </Link>
+            ) : (
+              <span aria-hidden="true">›</span>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="fin-head rise">
         <div>
-          <p className="hero-label">Orçamento pessoal por mês</p>
-          <p className="hero-figure">{brl(total)}</p>
+          <p className="hero-label">{annual ? `Orçamento pessoal de ${label}` : "Orçamento pessoal por mês"}</p>
+          <p className="hero-figure">{brl(totalPeriod)}</p>
           <div className="hero-delta">
+            {annual && <span>{brl(total)}/mês</span>}
             <span className={inRange ? "up" : "down"}>
-              meta {brl(BUDGET_TARGET.min)} a {brl(BUDGET_TARGET.max)}
+              meta {brl(BUDGET_TARGET.min)} a {brl(BUDGET_TARGET.max)} por mês
             </span>
             <span>
               gasto real nos últimos {closed.length} meses: {brl(avgLines)}/mês nestas linhas
@@ -115,35 +178,36 @@ export default async function OrcamentoPage() {
 
       <div className="grid">
         <div className="card tile span-3">
-          <div className="label">Gasto em {current.label} até hoje</div>
+          <div className="label">
+            Gasto em {label}
+            {isNow && !annual ? " até hoje" : ""}
+          </div>
           <div className="value">{brl(spentNow)}</div>
-          <div className={`delta ${spentNow <= total * pace ? "up" : "down"}`}>
-            {Math.round((spentNow / total) * 100)}% do orçamento com {Math.round(pace * 100)}% do mês
+          <div className={`delta ${spentNow <= totalPeriod * pace ? "up" : "down"}`}>
+            {Math.round((spentNow / totalPeriod) * 100)}% do orçamento{isNow ? ` com ${Math.round(pace * 100)}% ${unit}` : ""}
           </div>
         </div>
         <div className="card tile span-3">
-          <div className="label">Projeção para {current.label}</div>
+          <div className="label">{isNow ? `Projeção para ${annual ? year : label}` : `Fechou ${label}`}</div>
           <div className="value">{brl(projected)}</div>
-          <div className={`delta ${projected <= total ? "up" : "down"}`}>
-            {projected <= total ? `${brl(total - projected)} abaixo` : `${brl(projected - total)} acima`} do orçamento
+          <div className={`delta ${projected <= totalPeriod ? "up" : "down"}`}>
+            {projected <= totalPeriod ? `${brl(totalPeriod - projected)} abaixo` : `${brl(projected - totalPeriod)} acima`} do orçamento
           </div>
         </div>
         <div className="card tile span-3">
-          <div className="label">Fora do orçamento em {current.label}</div>
+          <div className="label">Fora do orçamento em {label}</div>
           <div className="value">{brl(looseRows.reduce((s, [, e]) => s + e.now, 0))}</div>
           <div className="delta down">
-            <Link href={`/financas/extrato?mes=${current.key}&cat=a-classificar`}>a classificar e categorias novas</Link>
+            <Link href={`/financas/extrato?mes=${lastKey}&cat=a-classificar`}>a classificar e categorias novas</Link>
           </div>
         </div>
         <div className="card tile span-3">
           <div className="label">stemOS no cartão pessoal</div>
-          <div className="value">{brl(current.business ?? 0)}</div>
-          <div className="delta">
-            {brl(stemosYear)} em {closed.length} meses, fora do orçamento
-          </div>
+          <div className="value">{brl(stemosPeriod)}</div>
+          <div className="delta">em {label}, fora do orçamento</div>
         </div>
 
-        <BudgetTable rows={rows} pace={pace} monthLabel={current.label} />
+        <BudgetTable rows={rows} pace={isNow ? pace : null} periodLabel={label} annual={annual} />
 
         <div className="card span-6">
           <div className="card-title">
@@ -154,7 +218,7 @@ export default async function OrcamentoPage() {
             <thead>
               <tr>
                 <th>Categoria</th>
-                <th>{current.label}</th>
+                <th>{annual ? year : label}</th>
                 <th>Média</th>
               </tr>
             </thead>
@@ -162,7 +226,7 @@ export default async function OrcamentoPage() {
               {looseRows.map(([slug, e]) => (
                 <tr key={slug}>
                   <td>
-                    <Link href={`/financas/extrato?mes=${current.key}&cat=${slug}`}>{categoryOf(slug, custom).name}</Link>
+                    <Link href={`/financas/extrato?mes=${lastKey}&cat=${slug}`}>{categoryOf(slug, custom).name}</Link>
                   </td>
                   <td>{brl(e.now)}</td>
                   <td>{brl(e.avg)}</td>

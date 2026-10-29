@@ -1131,3 +1131,22 @@ a.origin-tab:hover { border-color: var(--ink-2); }
 .bud-link::after { content: ""; position: absolute; inset: 0; } /* a linha toda abre o extrato */
 .bud-row input { position: relative; z-index: 1; }
 .chip.active { border-color: var(--accent); color: var(--ink-1); background: var(--accent-soft); }
+/* Orçamento: período e limite editável */
+.bud-period { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.bud-period .seg a { color: var(--ink-3); padding: 6px 11px; border-radius: 7px; font-size: 12.5px; text-decoration: none; }
+.bud-period .seg a[aria-current="page"] { background: var(--surface-3); color: var(--ink-1); }
+.bud-nav { display: inline-flex; align-items: center; gap: 4px; font-size: 13.5px; }
+.bud-nav a, .bud-nav span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; text-decoration: none; color: var(--ink-2); font-size: 18px; }
+.bud-nav a:hover { background: var(--surface-1); color: var(--ink-1); }
+.bud-nav span { color: var(--hairline-strong); }
+.bud-nav b { font-weight: 500; min-width: 120px; text-align: center; }
+.bud-limit, .bud-edit { position: relative; z-index: 1; display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.bud-limit button { display: inline-flex; align-items: center; gap: 6px; border: 1px dashed transparent; background: none; border-radius: 7px; padding: 1px 6px; margin: -2px -7px -2px 0; cursor: pointer; color: var(--ink-1); font: inherit; }
+.bud-limit button span { color: var(--ink-3); font-size: 11px; }
+.bud-limit button:hover { border-color: var(--accent); background: var(--accent-soft); }
+.bud-limit small, .bud-edit small { color: var(--ink-3); font-size: 11px; }
+.bud-limit .bud-reset { border: 0; padding: 0; margin: 0; font-size: 11px; color: var(--ink-3); text-decoration: underline; text-underline-offset: 2px; }
+.bud-limit .bud-reset:hover { background: none; color: var(--ink-1); }
+.bud-edit { flex-direction: row; align-items: center; gap: 5px; }
+.bud-edit .ed-input { height: 30px; }
+.ed-input.bad { border-color: var(--down); }

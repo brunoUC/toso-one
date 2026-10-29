@@ -12,7 +12,8 @@ export type BudgetRow = {
   kind: "fixo" | "variável" | "reserva";
   note: string;
   categories: string[];
-  limit: number;
+  limit: number; // por mês
+  limitPeriod: number; // no período mostrado (mês ou ano)
   defaultLimit: number;
   avg: number;
   median: number;
@@ -21,121 +22,155 @@ export type BudgetRow = {
   href: string;
 };
 
-export function BudgetTable({ rows, pace, monthLabel }: { rows: BudgetRow[]; pace: number; monthLabel: string }) {
-  const router = useRouter();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState(false);
-  const sections = [...new Set(rows.map((r) => r.section))];
+const parse = (raw: string) => Number(raw.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", "."));
 
-  async function save() {
+// Limite editável no próprio valor: toca, digita, Enter (Esc cancela). O
+// valor é sempre mensal, mesmo na visão anual.
+function LimitCell({ row, annual, onSaved }: { row: BudgetRow; annual: boolean; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(row.limit));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+
+  async function save(limit: number | null) {
     setBusy(true);
-    for (const r of rows) {
-      const raw = draft[r.id];
-      if (raw === undefined) continue;
-      const n = Number(raw.replace(/\./g, "").replace(",", "."));
-      const limit = raw.trim() === "" || n === r.defaultLimit ? null : n;
-      await fetch("/api/financas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "budget", lineId: r.id, limit }),
-      });
-    }
-    setDraft({});
-    setEditing(false);
+    setError(false);
+    const res = await fetch("/api/financas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "budget", lineId: row.id, limit }),
+    }).catch(() => null);
     setBusy(false);
-    router.refresh();
+    if (!res?.ok) {
+      setError(true);
+      return;
+    }
+    setEditing(false);
+    onSaved();
   }
+
+  function commit() {
+    const n = parse(value);
+    if (!Number.isFinite(n) || n < 0) {
+      setError(true);
+      return;
+    }
+    if (n === row.limit) return setEditing(false);
+    save(n === row.defaultLimit ? null : Math.round(n));
+  }
+
+  if (editing) {
+    return (
+      <span className="bud-edit">
+        <input
+          className={`ed-input money${error ? " bad" : ""}`}
+          inputMode="numeric"
+          autoFocus
+          value={value}
+          disabled={busy}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") {
+              setValue(String(row.limit));
+              setEditing(false);
+            }
+          }}
+          onBlur={commit}
+          aria-label={`Limite mensal de ${row.name}`}
+        />
+        <small>/mês</small>
+      </span>
+    );
+  }
+  const changed = row.limit !== row.defaultLimit;
+  return (
+    <span className="bud-limit">
+      <button type="button" onClick={() => setEditing(true)} title="Mudar o limite mensal">
+        <b>{brl(row.limitPeriod)}</b>
+        <span aria-hidden="true">✎</span>
+      </button>
+      {annual && <small>{brl(row.limit)}/mês</small>}
+      {changed && (
+        <button type="button" className="bud-reset" onClick={() => save(null)} title={`Voltar para ${brl(row.defaultLimit)}/mês`}>
+          padrão {brl(row.defaultLimit)}
+        </button>
+      )}
+      {error && <small className="down">não salvou</small>}
+    </span>
+  );
+}
+
+export function BudgetTable({ rows, pace, periodLabel, annual }: { rows: BudgetRow[]; pace: number | null; periodLabel: string; annual: boolean }) {
+  const router = useRouter();
+  const sections = [...new Set(rows.map((r) => r.section))];
+  const sum = (list: BudgetRow[], f: (r: BudgetRow) => number) => list.reduce((s, r) => s + f(r), 0);
 
   return (
     <div className="card span-12">
       <div className="card-title">
         <h3>Linhas do orçamento</h3>
-        <div className="ed-actions">
-          {editing ? (
-            <>
-              <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy}>
-                {busy ? "Salvando…" : "Salvar limites"}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => {
-                  setDraft({});
-                  setEditing(false);
-                }}
-              >
-                Cancelar
-              </button>
-            </>
-          ) : (
-            <button type="button" className="link-btn" onClick={() => setEditing(true)}>
-              editar limites
-            </button>
-          )}
-        </div>
+        <span className="card-sub" style={{ margin: 0 }}>
+          toque no limite para mudar
+        </span>
       </div>
       <p className="card-sub">
-        Barra = {monthLabel} até hoje. Traço = onde um gasto variável deveria estar hoje ({Math.round(pace * 100)}% do mês). Média e mediana dos meses fechados.
+        Barra = {periodLabel}
+        {pace !== null ? `. Traço = onde um gasto variável deveria estar hoje (${Math.round(pace * 100)}% ${annual ? "do ano" : "do mês"})` : ""}. Média e mediana por mês,
+        dos meses fechados.
       </p>
       <div className="bud-wrap">
         <table className="data-table bud">
           <thead>
             <tr>
               <th>Linha</th>
-              <th>Limite</th>
-              <th>Média</th>
+              <th>{annual ? "Limite no ano" : "Limite"}</th>
+              <th>Média/mês</th>
               <th>Mediana</th>
-              <th className="bud-bar-h">{monthLabel}</th>
-              <th>Projeção</th>
+              <th className="bud-bar-h">{periodLabel}</th>
+              <th>{pace !== null ? "Projeção" : "Fechou"}</th>
             </tr>
           </thead>
           <tbody>
             {sections.map((section) => {
               const list = rows.filter((r) => r.section === section);
-              const sum = (f: (r: BudgetRow) => number) => list.reduce((s, r) => s + f(r), 0);
               return (
                 <Fragment key={section}>
                   <tr className="bud-section">
                     <td>{section}</td>
-                    <td>{brl(sum((r) => r.limit))}</td>
-                    <td>{brl(sum((r) => r.avg))}</td>
-                    <td>{brl(sum((r) => r.median))}</td>
-                    <td />
-                    <td>{brl(sum((r) => r.projected))}</td>
+                    <td>{brl(sum(list, (r) => r.limitPeriod))}</td>
+                    <td>{brl(sum(list, (r) => r.avg))}</td>
+                    <td>{brl(sum(list, (r) => r.median))}</td>
+                    <td>
+                      <div className="bud-bar-in">
+                        <span className="bud-spent">{brl(sum(list, (r) => r.spent))}</span>
+                      </div>
+                    </td>
+                    <td>{brl(sum(list, (r) => r.projected))}</td>
                   </tr>
                   {list.map((r) => {
-                    const ratio = r.limit ? r.spent / r.limit : r.spent > 0 ? 2 : 0;
-                    const over = r.projected > r.limit * 1.02;
+                    const ratio = r.limitPeriod ? r.spent / r.limitPeriod : r.spent > 0 ? 2 : 0;
+                    const over = r.projected > r.limitPeriod * 1.02;
                     return (
                       <tr key={r.id} className="bud-row">
                         <td>
-                          <Link href={r.href} className="bud-link" title={`Ver os gastos de ${r.name} em ${monthLabel}`}>
+                          <Link href={r.href} className="bud-link" title={`Ver os gastos de ${r.name}`}>
                             {r.name}
                           </Link>
                           <small className="bud-kind"> · {r.kind}</small>
                           {r.note && <small className="bud-note">{r.note}</small>}
                         </td>
                         <td>
-                          {editing ? (
-                            <input
-                              className="ed-input money"
-                              inputMode="numeric"
-                              value={draft[r.id] ?? String(r.limit)}
-                              onChange={(e) => setDraft({ ...draft, [r.id]: e.target.value })}
-                              aria-label={`Limite de ${r.name}`}
-                            />
-                          ) : (
-                            <b>{brl(r.limit)}</b>
-                          )}
+                          <LimitCell row={r} annual={annual} onSaved={() => router.refresh()} />
                         </td>
                         <td className={r.avg > r.limit * 1.1 ? "down" : undefined}>{brl(r.avg)}</td>
                         <td>{brl(r.median)}</td>
                         <td className="bud-bar-c">
                           <div className="bud-bar-in">
-                            <span className="bud-bar" title={`${brl(r.spent)} de ${brl(r.limit)}`}>
+                            <span className="bud-bar" title={`${brl(r.spent)} de ${brl(r.limitPeriod)}`}>
                               <i className={ratio > 1 ? "over" : undefined} style={{ width: `${Math.min(1, ratio) * 100}%` }} />
-                              {r.kind === "variável" && <em style={{ left: `${pace * 100}%` }} />}
+                              {r.kind === "variável" && pace !== null && <em style={{ left: `${pace * 100}%` }} />}
                             </span>
                             <span className="bud-spent">{brl(r.spent)}</span>
                           </div>
@@ -149,11 +184,15 @@ export function BudgetTable({ rows, pace, monthLabel }: { rows: BudgetRow[]; pac
             })}
             <tr className="bud-total">
               <td>Total</td>
-              <td>{brl(rows.reduce((s, r) => s + r.limit, 0))}</td>
-              <td>{brl(rows.reduce((s, r) => s + r.avg, 0))}</td>
-              <td>{brl(rows.reduce((s, r) => s + r.median, 0))}</td>
-              <td>{brl(rows.reduce((s, r) => s + r.spent, 0))}</td>
-              <td>{brl(rows.reduce((s, r) => s + r.projected, 0))}</td>
+              <td>{brl(sum(rows, (r) => r.limitPeriod))}</td>
+              <td>{brl(sum(rows, (r) => r.avg))}</td>
+              <td>{brl(sum(rows, (r) => r.median))}</td>
+              <td>
+                <div className="bud-bar-in">
+                  <span className="bud-spent">{brl(sum(rows, (r) => r.spent))}</span>
+                </div>
+              </td>
+              <td>{brl(sum(rows, (r) => r.projected))}</td>
             </tr>
           </tbody>
         </table>
