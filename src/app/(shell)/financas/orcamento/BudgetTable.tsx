@@ -19,7 +19,6 @@ export type BudgetRow = {
   avgHref: string; // extrato com os meses que entram na média
   spent: number;
   projected: number;
-  next: number | null; // projeção do mês seguinte (só na visão do mês atual)
   href: string;
 };
 
@@ -133,12 +132,12 @@ export function BudgetTable({
   pace: number | null;
   periodLabel: string;
   annual: boolean;
-  projectionLabel: string | null; // "nov/26" (mês seguinte) ou "2026" (ano); null = sem projeção
+  projectionLabel: string | null; // "dez/26" na visão anual; null = sem projeção
 }) {
   const router = useRouter();
   const sections = [...new Set(rows.map((r) => r.section))];
   const sum = (list: BudgetRow[], f: (r: BudgetRow) => number) => list.reduce((s, r) => s + f(r), 0);
-  const proj = (r: BudgetRow) => (annual ? r.projected : (r.next ?? 0));
+  const proj = (r: BudgetRow) => r.projected;
 
   return (
     <div className="card span-12">
@@ -151,9 +150,7 @@ export function BudgetTable({
       <p className="card-sub">
         {annual
           ? `Realizado até hoje contra o limite do ano. ${projectionLabel ? `Projeção = se continuar na mesma média do ano até ${projectionLabel}.` : ""}`
-          : `${projectionLabel ? `Projeção de ${projectionLabel} pelo ritmo de agora: variáveis no passo deste mês, fixos pelo que já foi pago, reservas pela média dos últimos 3 meses. ` : ""}${
-              pace !== null ? `Traço na barra = onde um gasto variável deveria estar hoje (${Math.round(pace * 100)}% do mês). ` : ""
-            }Média por mês dos meses fechados.`}
+          : `${pace !== null ? `Traço na barra = onde um gasto variável deveria estar hoje (${Math.round(pace * 100)}% do mês). ` : ""}Média por mês dos meses fechados.`}
       </p>
       <div className="bud-wrap">
         <table className="data-table bud">

@@ -4,10 +4,7 @@ import { requireSession } from "@/lib/auth";
 import { BUDGET, BUDGET_TARGET, LINE_OF } from "@/lib/fin-budget";
 import { categoryOf } from "@/lib/fin-taxonomy";
 import { brl } from "@/lib/format";
-import { getOverview, monthName, shiftMonth } from "@/lib/financas";
-
-const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-const monthLabelOf = (k: string) => `${MONTHS[Number(k.slice(5, 7)) - 1]}/${k.slice(2, 4)}`;
+import { getOverview, monthName } from "@/lib/financas";
 import { FinNav } from "../FinNav";
 import { BudgetTable, type BudgetRow } from "./BudgetTable";
 
@@ -75,12 +72,6 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
           ? spent / pace
           : Math.max(spent, limitPeriod)
         : Math.max(spent, limitPeriod);
-    // Mês seguinte pelo ritmo de agora (só quando o mês mostrado é o atual):
-    // variável no passo deste mês, fixo pelo que já foi pago (ou o limite),
-    // reserva pela média dos 3 últimos meses fechados (vem em ondas).
-    const avg3 = hist.slice(-3).reduce((a, b) => a + b, 0) / Math.max(1, hist.slice(-3).length);
-    const next =
-      annual || !isNow ? null : line.kind === "variável" ? (pace > 0.15 ? spent / pace : avg3) : line.kind === "fixo" ? (spent > 0 ? spent : limit) : avg3;
     return {
       id: line.id,
       section: line.section,
@@ -94,7 +85,6 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
       avg: hist.length ? hist.reduce((a, b) => a + b, 0) / hist.length : 0,
       spent,
       projected,
-      next,
       href: `/financas/extrato?mes=${lastKey}&linha=${line.id}`,
       avgHref: `/financas/extrato?linha=${line.id}&de=${closed[0]?.key ?? current.key}&ate=${closed[closed.length - 1]?.key ?? current.key}`,
     };
@@ -238,7 +228,7 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
           pace={isNow ? pace : null}
           periodLabel={label}
           annual={annual}
-          projectionLabel={!isNow ? null : annual ? `dez/${year.slice(2)}` : monthLabelOf(shiftMonth(current.key, 1))}
+          projectionLabel={isNow && annual ? `dez/${year.slice(2)}` : null}
         />
 
         <div className="card span-6">
