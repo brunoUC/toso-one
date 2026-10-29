@@ -53,6 +53,10 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
   const flow = months.slice(1).map((m) => ({ label: m.label, income: Math.max(0, m.income), expense: Math.max(0, m.expense), partial: m.partial }));
   let run = 0;
   const cumulative = flow.map((m) => ({ label: m.label, netWorth: (run += m.income - m.expense) }));
+  const flowIn = flow.reduce((t, m) => t + m.income, 0);
+  const flowOut = flow.reduce((t, m) => t + m.expense, 0);
+  const closedFlow = flow.filter((m) => !m.partial);
+  const flowAvg = closedFlow.length ? closedFlow.reduce((t, m) => t + m.income - m.expense, 0) / closedFlow.length : 0;
   const yearAgo = data.series.length >= 13 ? data.series[0] : null;
   const lastSync = Math.max(...data.items.map((i) => i.lastSyncAt ?? 0));
 
@@ -156,23 +160,52 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
       <div className="grid">
         <div className="card span-8 rise">
           <div className="card-title">
-            <h3>Entradas e gastos por mês</h3>
+            <h3>Entradas, gastos e variação patrimonial</h3>
             <div className="legend">
               <span>
-                <i style={{ background: "var(--s1)" }} />
+                <i className="sq" style={{ background: "var(--s1)" }} />
                 Entradas
               </span>
               <span>
-                <i style={{ background: "var(--s2)" }} />
+                <i className="sq" style={{ background: "var(--s2)" }} />
                 Gastos
+              </span>
+              <span>
+                <i className="legend-line" />
+                Variação no mês
               </span>
             </div>
           </div>
-          <p className="card-sub">
-            Média de {brl(avg((m) => m.income, months.slice(1).filter((m) => !m.partial)))} entrando e {brl(avg((m) => m.expense, months.slice(1).filter((m) => !m.partial)))} saindo. Fatura
-            paga, aplicações, resgates, transferências entre suas contas e gastos da empresa ficam de fora.
-          </p>
+          <div className="flow-stats">
+            <div>
+              <span>Entrou</span>
+              <b>{brl(flowIn)}</b>
+            </div>
+            <div>
+              <span>Saiu</span>
+              <b>{brl(flowOut)}</b>
+            </div>
+            <div>
+              <span>Variação</span>
+              <b className={flowIn - flowOut >= 0 ? "up" : "down"}>
+                {flowIn - flowOut >= 0 ? "+" : "−"}
+                {brl(Math.abs(flowIn - flowOut))}
+              </b>
+            </div>
+            <div>
+              <span>Média/mês</span>
+              <b>
+                {flowAvg >= 0 ? "+" : "−"}
+                {brl(Math.abs(flowAvg))}
+              </b>
+            </div>
+          </div>
           <FlowChart data={flow} />
+          <p className="card-sub flow-foot">
+            {flow[0]?.label} a {flow[flow.length - 1]?.label}
+            {flow[flow.length - 1]?.partial ? " (* mês em andamento)" : ""}. Fora da conta: fatura paga, aplicações e resgates, transferências entre suas contas e
+            gastos da empresa. A variação não inclui o rendimento dos investimentos.
+          </p>
         </div>
 
         <div className="card span-4 rise">
@@ -221,7 +254,7 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
 
         <div className="card span-6">
           <div className="card-title">
-            <h3>{series.length > 1 ? "Evolução do patrimônio" : "Sobra acumulada"}</h3>
+            <h3>{series.length > 1 ? "Evolução do patrimônio" : "Variação patrimonial acumulada"}</h3>
             <span className="card-sub" style={{ margin: 0 }}>
               {series.length > 1 ? brl(series[series.length - 1].netWorth) : `${brl(cumulative[cumulative.length - 1]?.netWorth ?? 0)} desde ${flow[0]?.label ?? ""}`}
             </span>
@@ -229,9 +262,9 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
           <p className="card-sub">
             {series.length > 1
               ? "Fim de cada mês, pela fotografia diária das contas, investimentos e cartões conectados."
-              : "Entradas menos gastos, somando mês a mês: é o que sobrou para investir. O patrimônio de cada mês aparece aqui quando houver um mês de fotografias diárias."}
+              : "Soma das variações de cada mês: quanto o patrimônio cresceu com o que sobrou, sem contar rendimento. O patrimônio medido aparece aqui quando houver um mês de fotografias diárias."}
           </p>
-          {series.length > 1 ? <NetWorthChart data={series} /> : <NetWorthChart data={cumulative} name="Sobra acumulada" />}
+          {series.length > 1 ? <NetWorthChart data={series} /> : <NetWorthChart data={cumulative} name="Variação acumulada" />}
         </div>
 
         <div className="card span-6">

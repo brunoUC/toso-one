@@ -1154,3 +1154,14 @@ a.origin-tab:hover { border-color: var(--ink-2); }
 .fin-range table { margin: 0; min-width: 640px; }
 .fin-range th, .fin-range td { text-align: center !important; white-space: nowrap; }
 .fin-range th a { text-decoration: none; color: inherit; }
+
+/* Fluxo: entradas, gastos e variação */
+.legend .legend-line { width: 14px; height: 2px; border-radius: 1px; background: var(--ink-1); position: relative; }
+.legend .legend-line::after { content: ""; position: absolute; left: 4px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-1); }
+.flow-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 10px 0 6px; }
+.flow-stats div { display: grid; gap: 3px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); }
+.flow-stats span { font-size: 11.5px; color: var(--ink-3); }
+.flow-stats b { font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--ink-1); }
+.flow-stats b.up { color: var(--up); } .flow-stats b.down { color: var(--down); }
+.flow-foot { margin: 8px 0 0; }
+@media (max-width: 640px) { .flow-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
