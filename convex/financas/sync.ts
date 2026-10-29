@@ -118,9 +118,13 @@ function mapTx(t: PluggyTx, acc: { id: string; type: string }, itemId: string, b
     itemId,
     bank,
     accountType: acc.type,
-    // Cartão: vale o dia da compra. Nas parcelas a Pluggy põe em "date" o mês
-    // da fatura; a compra de verdade está em purchaseDate.
-    date: brDate(acc.type === "CREDIT" && t.creditCardMetadata?.purchaseDate ? t.creditCardMetadata.purchaseDate : t.date),
+    // Cartão: compra à vista no dia da compra; parcela no mês em que cai
+    // (a Pluggy já põe em "date" o mês da fatura de cada parcela).
+    date: brDate(
+      acc.type === "CREDIT" && (t.creditCardMetadata?.totalInstallments ?? 1) <= 1 && t.creditCardMetadata?.purchaseDate
+        ? t.creditCardMetadata.purchaseDate
+        : t.date,
+    ),
     at: t.date,
     amount,
     description,
