@@ -34,7 +34,7 @@ type PluggyAccount = {
   marketingName?: string;
   number?: string;
   balance?: number;
-  creditData?: { creditLimit?: number; availableCreditLimit?: number; balanceDueDate?: string } | null;
+  creditData?: { creditLimit?: number; availableCreditLimit?: number; balanceDueDate?: string; balanceCloseDate?: string } | null;
 };
 type Party = { name?: string; documentNumber?: { value?: string } | null } | null | undefined;
 type PluggyTx = {
@@ -255,6 +255,7 @@ export const syncAll = internalAction({
             creditLimit: acc.creditData?.creditLimit ?? undefined,
             availableCredit: acc.creditData?.availableCreditLimit ?? undefined,
             dueDate: acc.creditData?.balanceDueDate ? brDate(acc.creditData.balanceDueDate) : undefined,
+            closeDate: acc.creditData?.balanceCloseDate ? brDate(acc.creditData.balanceCloseDate) : undefined,
           });
           const txs = await allTransactions<PluggyTx>(key, acc.id, from);
           const rows = txs.map((t) => mapTx(t, acc, stored.itemId, bank));
@@ -413,6 +414,7 @@ export const upsertAccount = internalMutation({
     creditLimit: v.optional(v.number()),
     availableCredit: v.optional(v.number()),
     dueDate: v.optional(v.string()),
+    closeDate: v.optional(v.string()),
   },
   handler: async (ctx, acc) => {
     const row = await ctx.db.query("finAccounts").withIndex("by_accountId", (q) => q.eq("accountId", acc.accountId)).unique();
@@ -560,6 +562,10 @@ export const snapshot = internalMutation({
     const row = await ctx.db.query("finNetWorth").withIndex("by_date", (q) => q.eq("date", date)).unique();
     if (row) await ctx.db.replace(row._id, doc);
     else await ctx.db.insert("finNetWorth", doc);
+
+    // E o saldo de cada investimento, para a conta da semana (weekly.ts).
+    for (const old of await ctx.db.query("finInvSnap").withIndex("by_date", (q) => q.eq("date", date)).collect()) await ctx.db.delete(old._id);
+    for (const i of inv) await ctx.db.insert("finInvSnap", { date, investmentId: i.investmentId as string, bank: i.bank as string, balance: i.balance as number });
   },
 });
 

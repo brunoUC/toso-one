@@ -7,6 +7,7 @@ import { brl } from "@/lib/format";
 import { getOverview, monthName } from "@/lib/financas";
 import { FinNav } from "../FinNav";
 import { BudgetTable, type BudgetRow } from "./BudgetTable";
+import { CardPlans } from "../WeeklyCard";
 
 export const metadata: Metadata = { title: "Orçamento · Finanças" };
 export const dynamic = "force-dynamic";
@@ -166,6 +167,7 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
           </div>
         </div>
       </div>
+      <CardPlans plans={data.cardPlans.filter((p) => p.transfer > 0)} />
 
       <div className="fin-head rise">
         <div>

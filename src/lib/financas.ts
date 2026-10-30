@@ -2,12 +2,25 @@ import "server-only";
 import { api, convex, convexConfigured, serverSecret } from "./convex";
 import type { Insight, LeanTx, MonthAgg, Recurring, Snapshot } from "../../convex/financas/analytics";
 import type { Custom, Rule } from "../../convex/financas/taxonomy";
+import type { CardPlan } from "../../convex/financas/cards";
+import type { WeekNumbers, WeekReport } from "../../convex/financas/weekly";
 import type { ChecklistItem } from "../../convex/financas/checklist";
 export type { ChecklistItem };
 
 // Leitura das Finanças no Convex, sempre do servidor com o segredo.
 
-export type { Insight, LeanTx, MonthAgg, Recurring, Snapshot, Custom };
+export type { Insight, LeanTx, MonthAgg, Recurring, Snapshot, Custom, CardPlan, WeekNumbers, WeekReport };
+
+export type Weekly = {
+  weekEnd: string;
+  status: string; // rodando | ok | erro
+  numbers: WeekNumbers;
+  report: WeekReport | null;
+  sources: { title: string; url: string }[];
+  error: string | null;
+  startedAt: number;
+  finishedAt: number | null;
+};
 
 export type FinItem = {
   itemId: string;
@@ -80,6 +93,7 @@ export type Overview = {
   goals: FinGoal[];
   budget: { lineId: string; limit: number }[];
   gainsGone: { name: string; bank: string; gain: number }[];
+  cardPlans: CardPlan[];
   checklist: ChecklistItem[];
   manualAssets: { id: string; name: string; principal: number; start: string; monthlyRate: number; note: string | null; value: number }[];
   rulesCount: number;
@@ -102,6 +116,27 @@ export async function getOverview(): Promise<Overview | null> {
   if (!convexConfigured()) return null;
   const { monthsJson, ...rest } = await convex().query(api.financas.data.overview, { secret: serverSecret() });
   return { ...rest, months: JSON.parse(monthsJson) } as Overview;
+}
+
+// Análises semanais da XP, da mais nova para a mais velha.
+export async function getWeekly(limit = 6): Promise<Weekly[]> {
+  if (!convexConfigured()) return [];
+  const rows = (await convex().query(api.financas.weekly.latest, { secret: serverSecret(), limit })) as {
+    weekEnd: string;
+    status: string;
+    numbers: string;
+    report: string | null;
+    sources: string | null;
+    error: string | null;
+    startedAt: number;
+    finishedAt: number | null;
+  }[];
+  return rows.map((r) => ({
+    ...r,
+    numbers: JSON.parse(r.numbers) as WeekNumbers,
+    report: r.report ? (JSON.parse(r.report) as WeekReport) : null,
+    sources: r.sources ? (JSON.parse(r.sources) as { title: string; url: string }[]) : [],
+  }));
 }
 
 export async function getTxList(from: string, to: string): Promise<{

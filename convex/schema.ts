@@ -59,6 +59,7 @@ export default defineSchema({
     creditLimit: v.optional(v.number()),
     availableCredit: v.optional(v.number()),
     dueDate: v.optional(v.string()),
+    closeDate: v.optional(v.string()), // cartão: dia em que a fatura fecha
     updatedAt: v.number(),
   }).index("by_accountId", ["accountId"]),
 
@@ -118,6 +119,41 @@ export default defineSchema({
     updatedAt: v.number(),
     gone: v.optional(v.boolean()), // resgatado (ou não veio mais da Pluggy)
   }).index("by_investmentId", ["investmentId"]),
+
+  // Saldo de cada investimento no fim de cada dia (gravado junto com o
+  // finNetWorth): é a base do "quanto rendeu na semana" da XP.
+  finInvSnap: defineTable({
+    date: v.string(),
+    investmentId: v.string(),
+    bank: v.string(),
+    balance: v.number(),
+  })
+    .index("by_date", ["date"])
+    .index("by_investment_date", ["investmentId", "date"]),
+
+  // Análise semanal da carteira da XP (financas/weekly.ts). Os números saem
+  // do código; o texto e as oportunidades, da pesquisa do Claude.
+  finWeekly: defineTable({
+    weekEnd: v.string(), // AAAA-MM-DD do dia da análise
+    status: v.string(), // rodando | ok | erro
+    numbers: v.string(), // JSON: WeekNumbers
+    report: v.optional(v.string()), // JSON: WeekReport
+    sources: v.optional(v.string()), // JSON: { title, url }[]
+    error: v.optional(v.string()),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+  }).index("by_weekEnd", ["weekEnd"]),
+
+  // Avisos de "transfira antes de a fatura fechar" já mandados: um por
+  // banco e data de fechamento.
+  finCardAlerts: defineTable({
+    itemId: v.string(),
+    bank: v.string(),
+    closeDate: v.string(),
+    text: v.string(),
+    transfer: v.number(),
+    sentAt: v.number(),
+  }).index("by_item_close", ["itemId", "closeDate"]),
 
   // Compras, resgates e juros de cada investimento, com o preço da cota na
   // data: é o que separa aporte de valorização.
@@ -179,6 +215,19 @@ export default defineSchema({
   // Ajustes da lista "Contas do mês": por qual pessoa/loja reconhecer o
   // pagamento de cada item (null = pela categoria).
   finChecklist: defineTable({ key: v.string(), payee: v.union(v.string(), v.null()) }).index("by_key", ["key"]),
+
+  // Aparelhos que aceitaram notificações (Web Push). Um por endpoint.
+  pushSubs: defineTable({
+    endpoint: v.string(),
+    p256dh: v.string(),
+    auth: v.string(),
+    deviceName: v.string(),
+    createdAt: v.number(),
+    lastOkAt: v.optional(v.number()),
+  }).index("by_endpoint", ["endpoint"]),
+
+  // Par de chaves VAPID do Web Push, gerado na primeira vez (uma linha só).
+  pushKeys: defineTable({ publicKey: v.string(), privateKey: v.string(), createdAt: v.number() }),
 
   finGoals: defineTable({
     name: v.string(),

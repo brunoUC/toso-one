@@ -14,7 +14,8 @@ type Body =
   | { action: "deleteGoal"; id: string }
   | { action: "budget"; lineId: string; limit: number | null }
   | { action: "checklist"; key: string; txId: string | null }
-  | { action: "sync" };
+  | { action: "sync" }
+  | { action: "weekly" };
 
 const str = (v: unknown, max = 200) => (typeof v === "string" ? v.slice(0, max) : "");
 
@@ -68,6 +69,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true });
       case "sync":
         await c.action(api.financas.sync.syncNow, { secret });
+        return NextResponse.json({ ok: true });
+      case "weekly":
+        await c.action(api.financas.weekly.runNow, { secret });
         return NextResponse.json({ ok: true });
       default:
         return NextResponse.json({ error: "Pedido desconhecido." }, { status: 400 });

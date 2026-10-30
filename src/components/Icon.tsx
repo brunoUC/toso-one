@@ -103,6 +103,7 @@ const PATHS = {
       <path d="M12 3v18M3 12h9" />
     </>
   ),
+  bell: <path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9M10 20a2 2 0 0 0 4 0" />,
   database: (
     <>
       <ellipse cx="12" cy="5" rx="8" ry="3" />

@@ -11,9 +11,10 @@ import { StatTile } from "@/components/charts/StatTile";
 import { Icon } from "@/components/Icon";
 import { CATEGORIES, GROUPS, categoryOf } from "@/lib/fin-taxonomy";
 import { brl } from "@/lib/format";
-import type { FinGoal, MonthAgg, Overview } from "@/lib/financas";
+import type { FinGoal, MonthAgg, Overview, Weekly } from "@/lib/financas";
 import { Checklist } from "./Checklist";
 import { FinNav } from "./FinNav";
+import { CardPlans, WeeklyCard } from "./WeeklyCard";
 
 const INVESTMENT_LABEL: Record<string, string> = {
   FIXED_INCOME: "Renda fixa",
@@ -34,7 +35,7 @@ async function post(body: Record<string, unknown>) {
   return out;
 }
 
-export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { bank: string; text: string; bad: boolean }[] }) {
+export function FinanceDashboard({ data, alerts, weeks }: { data: Overview; alerts: { bank: string; text: string; bad: boolean }[]; weeks: Weekly[] }) {
   const router = useRouter();
   const [syncing, setSyncing] = useState(false);
   const { months, netWorth, custom } = data;
@@ -151,6 +152,8 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
         </ul>
       )}
 
+      <CardPlans plans={data.cardPlans ?? []} />
+
       <div className="fin-head rise">
         <div>
           <p className="hero-label">Patrimônio total</p>
@@ -173,6 +176,7 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
       </div>
 
       <div className="grid">
+        <WeeklyCard weeks={weeks} />
         <Checklist items={data.checklist} monthLabel={current.label} today={data.today} />
 
         <div className="card span-8 rise">

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { EnablePasskeyButton } from "@/components/EnablePasskey";
 import { Icon } from "@/components/Icon";
+import { PushToggle } from "@/components/PushToggle";
 import { requireSession } from "@/lib/auth";
 import { convexConfigured, listPasskeys, type StoredPasskey } from "@/lib/convex";
 import { passwordConfigured } from "@/lib/password";
@@ -72,6 +73,17 @@ export default async function AjustesPage() {
               </div>
             </>
           )}
+        </section>
+
+        <section className="card">
+          <h2>
+            <span className="ti">
+              <Icon name="bell" size={15} />
+            </span>
+            Notificações
+          </h2>
+          <p className="card-sub">Avisos de fatura (quanto transferir antes de fechar) e o resumo semanal da XP.</p>
+          {convexOk && !convexError ? <PushToggle /> : <p className="form-note">Precisa do Convex configurado.</p>}
         </section>
 
         <section className="card">

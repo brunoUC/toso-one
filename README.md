@@ -169,6 +169,29 @@ variáveis de ambiente do Convex).
   com filtros), `/financas/m/<id>` (detalhe e tudo o que o banco mandou),
   `/financas/regras`.
 
+- **Semana na XP** (`convex/financas/weekly.ts` e `weeklyRun.ts`): todo
+  sábado às 08:47 (ou "analisar agora" em Finanças → Painel). Os números são do código:
+  saldo dos investimentos da XP hoje contra 7 dias atrás (`finInvSnap`, uma
+  fotografia por investimento a cada leitura), menos aportes e mais resgates,
+  e o CDI do mesmo período pela série 12 do Banco Central. Depois o Claude
+  Opus pesquisa na web (Selic, Copom, CDI, o que a XP oferece) e procura
+  oportunidades no perfil: conservador, só liquidez D+0/D+1, tudo pela XP.
+  Vai para a API só nome e saldo dos investimentos e das contas. Precisa de
+  `ANTHROPIC_API_KEY` no Convex; custa centavos a poucos dólares por semana.
+  A primeira semana não tem base de 7 dias atrás, então só mostra a análise.
+- **Aviso de fatura** (`convex/financas/cards.ts`): todo dia às 08:23, se a
+  fatura de um banco fecha em até 3 dias e a conta dele não cobre, manda um
+  push com quanto transferir (com 10% de folga, mínimo R$ 100) e de onde:
+  XP primeiro, depois o banco com mais folga. Sem a data de fechamento da
+  Pluggy, estima 7 dias antes do vencimento. Um aviso por banco e
+  fechamento; as faturas dos próximos 5 dias também aparecem no painel e,
+  quando falta dinheiro, no topo do Orçamento.
+- **Notificações** (`convex/push.ts`, `public/sw.js`): Web Push. No iPhone,
+  adicione o toso one à Tela de Início, abra por lá e ative em Ajustes →
+  Notificações. As chaves VAPID nascem sozinhas no Convex na primeira vez
+  (`PUSH_SUBJECT` no Convex troca o remetente, padrão
+  `https://toso-one.vercel.app`).
+
 Conectar outro banco: conecte no Meu Pluggy e rode
 `npx convex run --prod financas/sync:addItems '{"itemIds":["<id>"]}'`.
 

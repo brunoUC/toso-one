@@ -4,6 +4,7 @@ import { v, type GenericId } from "convex/values";
 import { assertServer } from "../guard";
 import { insights, investmentGains, manualGainsByMonth, manualValue, monthly, netWorthSeries, recurring, type InvLite, type InvTxLite, type LeanTx, type ManualAsset, type Snapshot } from "./analytics";
 import { checklist } from "./checklist";
+import { cardPlans, type AccLite, type InvBank } from "./cards";
 import { factsOf, loadOwners, NO_OWNERS } from "./sync";
 import { bestRuleFor, CATEGORIES, categoryOf, classify, GROUPS, norm, ruleMatches, type Custom, type Rule } from "./taxonomy";
 
@@ -141,6 +142,8 @@ async function buildOverview(ctx: GenericQueryCtx<GenericDataModel>) {
         value: manualValue(a as unknown as ManualAsset, now),
       })),
       gainsGone: gains.items.filter((g) => g.gone).map((g) => ({ name: g.name, bank: g.bank, gain: g.gain })),
+      // Faturas que fecham nos próximos 5 dias contra o saldo do banco.
+      cardPlans: cardPlans(accounts as unknown as AccLite[], investments as unknown as InvBank[], now, 5),
       recurring: rec,
       unclassified,
       topExpenses: txs

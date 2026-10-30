@@ -1216,3 +1216,22 @@ a.origin-tab:hover { border-color: var(--ink-2); }
 .bud-hero-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--s1); }
 .bud-hero-spent.over .bud-hero-bar i { background: var(--down); }
 .bud-hero-bar em { position: absolute; top: -3px; width: 2px; height: 14px; border-radius: 1px; background: var(--ink-2); box-shadow: 0 0 0 2px var(--surface-1); }
+
+/* Semana na XP (WeeklyCard.tsx) */
+.wk-headline { margin: 16px 0 4px; font: 400 22px/1.25 var(--serif); color: var(--ink-1); }
+.wk-text { margin: 0 0 10px; font-size: 13.5px; line-height: 1.55; color: var(--ink-2); }
+.wk-action { display: flex; gap: 8px; align-items: baseline; margin: 0 0 14px; padding: 10px 12px; border-radius: 12px; font-size: 13.5px; color: var(--ink-1); background: var(--accent-soft); }
+.wk-action svg { flex: none; position: relative; top: 2px; color: var(--accent); }
+.wk-opps { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+.wk-opps li { display: grid; gap: 3px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--hairline-strong); font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+.wk-opps b { font-weight: 500; color: var(--ink-1); }
+.wk-meta { font-size: 12px; color: var(--ink-3); }
+.wk-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.wk-cols h4 { margin: 0 0 6px; font-size: 12px; font-weight: 500; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.wk-cols ul, .wk-sources { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+.wk-risks { margin: 12px 0 0; }
+.wk-more { margin-top: 12px; font-size: 13px; color: var(--ink-2); }
+.wk-more summary { cursor: pointer; color: var(--ink-3); font-size: 12.5px; }
+.wk-more .wk-sources { margin-top: 8px; }
+.wk-sources a { color: var(--ink-2); overflow-wrap: anywhere; }
+@media (max-width: 640px) { .wk-cols { grid-template-columns: 1fr; } }
