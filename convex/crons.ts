@@ -11,7 +11,7 @@ crons.cron("financas-sync", "17 9,21 * * *", makeFunctionReference<"action">("fi
 // fatura fecha em até 3 dias e a conta do banco não cobre.
 crons.cron("financas-cartoes", "23 11 * * *", makeFunctionReference<"action">("financas/cards:check"), {});
 
-// XP: análise da semana no sábado às 08:47, com os dados de sexta já lidos.
-crons.cron("financas-semana-xp", "47 11 * * 6", makeFunctionReference<"action">("financas/weeklyRun:run"), {});
+// A análise da semana na XP não roda aqui: é uma tarefa agendada do Claude
+// Code (sábado de manhã) que fala com /api/agente/semana.
 
 export default crons;

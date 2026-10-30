@@ -169,16 +169,17 @@ variáveis de ambiente do Convex).
   com filtros), `/financas/m/<id>` (detalhe e tudo o que o banco mandou),
   `/financas/regras`.
 
-- **Semana na XP** (`convex/financas/weekly.ts` e `weeklyRun.ts`): todo
-  sábado às 08:47 (ou "analisar agora" em Finanças → Painel). Os números são do código:
+- **Semana na XP** (`convex/financas/weekly.ts`, `/api/agente/semana`):
+  todo sábado às 09:13 uma tarefa agendada do Claude Code (na assinatura,
+  sem custo de API) lê os números da semana, pesquisa na web (Selic, Copom,
+  CDI, o que a XP oferece) e devolve a análise. Os números são do código:
   saldo dos investimentos da XP hoje contra 7 dias atrás (`finInvSnap`, uma
-  fotografia por investimento a cada leitura), menos aportes e mais resgates,
-  e o CDI do mesmo período pela série 12 do Banco Central. Depois o Claude
-  Opus pesquisa na web (Selic, Copom, CDI, o que a XP oferece) e procura
-  oportunidades no perfil: conservador, só liquidez D+0/D+1, tudo pela XP.
-  Vai para a API só nome e saldo dos investimentos e das contas. Precisa de
-  `ANTHROPIC_API_KEY` no Convex; custa centavos a poucos dólares por semana.
-  A primeira semana não tem base de 7 dias atrás, então só mostra a análise.
+  fotografia por investimento a cada leitura), menos aportes e mais
+  resgates, e o CDI do mesmo período pela série 12 do Banco Central. O
+  perfil é conservador: só liquidez D+0/D+1, tudo pela XP. A rota exige
+  `TOSO_AGENT_TOKEN` (na Vercel e nas variáveis do ambiente do Claude Code)
+  e só lê os números da semana e grava a análise. A primeira semana não tem
+  base de 7 dias atrás, então só mostra a análise.
 - **Aviso de fatura** (`convex/financas/cards.ts`): todo dia às 08:23, se a
   fatura de um banco fecha em até 3 dias e a conta dele não cobre, manda um
   push com quanto transferir (com 10% de folga, mínimo R$ 100) e de onde:

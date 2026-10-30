@@ -1,7 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { Icon } from "@/components/Icon";
 import { brl } from "@/lib/format";
 import type { CardPlan, Weekly } from "@/lib/financas";
@@ -24,32 +22,11 @@ export function CardPlans({ plans }: { plans: CardPlan[] }) {
   );
 }
 
-// Semana na XP: os números da semana e a análise do Claude (sábado de manhã).
+// Semana na XP: os números da semana e a análise que uma tarefa agendada do
+// Claude Code escreve todo sábado de manhã (POST /api/agente/semana).
 export function WeeklyCard({ weeks }: { weeks: Weekly[] }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
   const latest = weeks.find((w) => w.status === "ok") ?? null;
-  const running = weeks[0]?.status === "rodando" && Date.now() - weeks[0].startedAt < 15 * 60_000;
-  const failed = weeks[0]?.status === "erro" ? weeks[0] : null;
   const older = weeks.filter((w) => w !== latest && w.status === "ok" && w.report).slice(0, 4);
-
-  async function runNow() {
-    setBusy(true);
-    setErr(null);
-    try {
-      const res = await fetch("/api/financas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "weekly" }) });
-      const out = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(out.error ?? "Não deu certo.");
-      // A pesquisa roda no Convex e leva alguns minutos.
-      setTimeout(() => router.refresh(), 4000);
-    } catch (e) {
-      setErr((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const n = latest?.numbers;
   const r = latest?.report;
 
@@ -58,19 +35,13 @@ export function WeeklyCard({ weeks }: { weeks: Weekly[] }) {
       <div className="card-title">
         <h3>Semana na XP</h3>
         <span className="card-sub" style={{ margin: 0 }}>
-          {latest ? `análise de ${dm(latest.weekEnd)} · ` : "todo sábado às 08:47 · "}
-          <button type="button" className="link-btn" onClick={runNow} disabled={busy || running}>
-            {running ? "analisando… (uns 5 min)" : busy ? "pedindo…" : "analisar agora"}
-          </button>
+          {latest ? `análise de ${dm(latest.weekEnd)} · ` : ""}todo sábado de manhã
         </span>
       </div>
 
-      {err && <p className="form-error">{err}</p>}
-      {failed && !running && <p className="form-error">A última análise falhou: {failed.error}</p>}
-
       {!latest || !n || !r ? (
         <p className="card-sub" style={{ margin: 0 }}>
-          {running ? "Pesquisando o mercado e olhando a carteira…" : "Ainda sem análise. A primeira roda no sábado de manhã, ou toque em “analisar agora”."}
+          Ainda sem análise. A primeira chega no sábado de manhã.
         </p>
       ) : (
         <>
