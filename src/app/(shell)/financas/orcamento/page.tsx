@@ -167,7 +167,7 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
           </div>
         </div>
       </div>
-      <CardPlans plans={data.cardPlans.filter((p) => p.transfer > 0)} />
+      <CardPlans plans={(data.cardPlans ?? []).filter((p) => p.transfer > 0)} />
 
       <div className="fin-head rise">
         <div>
