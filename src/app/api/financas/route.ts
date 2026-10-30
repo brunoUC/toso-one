@@ -13,6 +13,7 @@ type Body =
   | { action: "saveGoal"; id?: string; name: string; target: number; deadline?: string; source: string; manualValue?: number; scope?: string }
   | { action: "deleteGoal"; id: string }
   | { action: "budget"; lineId: string; limit: number | null }
+  | { action: "checklist"; key: string; txId: string | null }
   | { action: "sync" };
 
 const str = (v: unknown, max = 200) => (typeof v === "string" ? v.slice(0, max) : "");
@@ -62,6 +63,9 @@ export async function POST(request: Request) {
         await c.mutation(api.financas.data.setBudgetLimit, { secret, lineId: str(b.lineId, 40), limit });
         return NextResponse.json({ ok: true });
       }
+      case "checklist":
+        await c.mutation(api.financas.data.setChecklistPayee, { secret, key: str(b.key, 40), txId: b.txId ? str(b.txId) : null });
+        return NextResponse.json({ ok: true });
       case "sync":
         await c.action(api.financas.sync.syncNow, { secret });
         return NextResponse.json({ ok: true });

@@ -2,6 +2,8 @@ import "server-only";
 import { api, convex, convexConfigured, serverSecret } from "./convex";
 import type { Insight, LeanTx, MonthAgg, Recurring, Snapshot } from "../../convex/financas/analytics";
 import type { Custom, Rule } from "../../convex/financas/taxonomy";
+import type { ChecklistItem } from "../../convex/financas/checklist";
+export type { ChecklistItem };
 
 // Leitura das Finanças no Convex, sempre do servidor com o segredo.
 
@@ -78,6 +80,7 @@ export type Overview = {
   goals: FinGoal[];
   budget: { lineId: string; limit: number }[];
   gainsGone: { name: string; bank: string; gain: number }[];
+  checklist: ChecklistItem[];
   manualAssets: { id: string; name: string; principal: number; start: string; monthlyRate: number; note: string | null; value: number }[];
   rulesCount: number;
   txCount: number;

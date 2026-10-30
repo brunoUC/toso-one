@@ -3,6 +3,7 @@ import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from "conv
 import { v, type GenericId } from "convex/values";
 import { assertServer } from "../guard";
 import { insights, investmentGains, manualGainsByMonth, manualValue, monthly, netWorthSeries, recurring, type InvLite, type InvTxLite, type LeanTx, type ManualAsset, type Snapshot } from "./analytics";
+import { checklist } from "./checklist";
 import { factsOf, loadOwners, NO_OWNERS } from "./sync";
 import { bestRuleFor, CATEGORIES, categoryOf, classify, GROUPS, norm, ruleMatches, type Custom, type Rule } from "./taxonomy";
 
@@ -125,6 +126,11 @@ async function buildOverview(ctx: GenericQueryCtx<GenericDataModel>) {
       // Em texto: os nomes de grupo têm acento e o Convex só aceita chaves ASCII.
       monthsJson: JSON.stringify(months),
       // Valorização dos que já foram resgatados (somem da lista de hoje).
+      checklist: checklist(
+        txs,
+        new Map((await ctx.db.query("finChecklist").collect()).map((c) => [c.key as string, (c.payee as string | null) ?? null])),
+        now,
+      ),
       manualAssets: manualRows.map((a) => ({
         id: a._id as string,
         name: a.name as string,
@@ -388,5 +394,23 @@ export const setBudgetLimit = mutation({
       if (row) await ctx.db.delete(row._id);
     } else if (row) await ctx.db.patch(row._id, { limit });
     else await ctx.db.insert("finBudget", { lineId, limit });
+  },
+});
+
+// "Não é este?": passa a reconhecer o item pelo nome de quem recebeu o
+// pagamento escolhido (ou volta para a categoria, com payee null).
+export const setChecklistPayee = mutation({
+  args: { secret: v.string(), key: v.string(), txId: v.union(v.string(), v.null()) },
+  handler: async (ctx, { secret, key, txId }) => {
+    assertServer(secret);
+    let payee: string | null = null;
+    if (txId) {
+      const t = await ctx.db.query("finTx").withIndex("by_txId", (q) => q.eq("txId", txId)).unique();
+      if (!t) throw new Error("Movimentação não encontrada.");
+      payee = norm((t.counterpartName as string | undefined) ?? (t.merchantName as string | undefined) ?? (t.description as string));
+    }
+    const row = await ctx.db.query("finChecklist").withIndex("by_key", (q) => q.eq("key", key)).unique();
+    if (row) await ctx.db.patch(row._id, { payee });
+    else await ctx.db.insert("finChecklist", { key, payee });
   },
 });

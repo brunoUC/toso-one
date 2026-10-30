@@ -12,6 +12,7 @@ import { Icon } from "@/components/Icon";
 import { CATEGORIES, GROUPS, categoryOf } from "@/lib/fin-taxonomy";
 import { brl } from "@/lib/format";
 import type { FinGoal, MonthAgg, Overview } from "@/lib/financas";
+import { Checklist } from "./Checklist";
 import { FinNav } from "./FinNav";
 
 const INVESTMENT_LABEL: Record<string, string> = {
@@ -172,6 +173,8 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
       </div>
 
       <div className="grid">
+        <Checklist items={data.checklist} monthLabel={current.label} today={data.today} />
+
         <div className="card span-8 rise">
           <div className="card-title">
             <h3>Entradas, gastos e variação patrimonial</h3>

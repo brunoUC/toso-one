@@ -176,6 +176,10 @@ export default defineSchema({
     createdAt: v.number(),
   }),
 
+  // Ajustes da lista "Contas do mês": por qual pessoa/loja reconhecer o
+  // pagamento de cada item (null = pela categoria).
+  finChecklist: defineTable({ key: v.string(), payee: v.union(v.string(), v.null()) }).index("by_key", ["key"]),
+
   finGoals: defineTable({
     name: v.string(),
     target: v.number(),
