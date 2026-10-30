@@ -24,7 +24,7 @@ export type LeanTx = {
   note?: string;
 };
 
-export type Snapshot = { date: string; cash: number; investments: number; cardDebt: number; total: number; invested: number };
+export type Snapshot = { date: string; cash: number; investments: number; cardDebt: number; total: number; invested: number; manual?: number };
 
 export type MonthAgg = {
   key: string; // AAAA-MM
@@ -35,6 +35,7 @@ export type MonthAgg = {
   business: number; // gasto da empresa pela conta pessoal, fora dos gastos
   businessByCategory: Record<string, number>; // stemos, reembolso-empresa (positivo = saiu de mim)
   gains?: number; // valorização dos investimentos no mês (preenchida no overview)
+  manualGains?: number; // parte disso que veio de ativos fora da Pluggy
   byCategory: Record<string, number>; // gasto líquido (estornos abatem)
   byGroup: Record<string, number>;
   incomeByCategory: Record<string, number>;
@@ -281,3 +282,38 @@ export function investmentGains(invs: InvLite[], txs: InvTxLite[], today: string
   }
   return { byMonth, items };
 }
+
+// ── Ativos fora da Pluggy ───────────────────────────────────────────────────
+// Juros compostos mensais, com o mês em andamento contado pro rata pelos dias.
+
+export type ManualAsset = { name: string; principal: number; start: string; monthlyRate: number };
+
+export function manualValue(a: ManualAsset, date: string): number {
+  if (date < a.start) return 0;
+  const [y0, m0, d0] = a.start.split("-").map(Number);
+  const [y, m, d] = date.split("-").map(Number);
+  let months = (y - y0) * 12 + (m - m0);
+  const dim = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  months += (d - d0) / dim;
+  return a.principal * Math.pow(1 + a.monthlyRate, Math.max(0, months));
+}
+
+// Rendimento de cada mês: valor no fim do mês (ou hoje) menos no começo.
+export function manualGainsByMonth(assets: ManualAsset[], monthKeys: string[], today: string): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const a of assets) {
+    for (const key of monthKeys) {
+      const [y, m] = key.split("-").map(Number);
+      const first = `${key}-01`;
+      const last = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+      const end = last > today ? today : last;
+      const from = first < a.start ? a.start : first;
+      if (end < a.start || end < from) continue;
+      const g = manualValue(a, end) - (from === a.start ? a.principal : manualValue(a, prevDay(from)));
+      if (g) out[key] = (out[key] ?? 0) + g;
+    }
+  }
+  return out;
+}
+
+const prevDay = (d: string) => new Date(Date.parse(d + "T00:00:00Z") - 86400_000).toISOString().slice(0, 10);

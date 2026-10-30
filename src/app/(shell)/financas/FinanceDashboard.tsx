@@ -69,7 +69,12 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
   // Onde está o dinheiro: contas + investimentos por tipo.
   const byType = new Map<string, number>();
   for (const i of data.investments) byType.set(INVESTMENT_LABEL[i.type] ?? i.type, (byType.get(INVESTMENT_LABEL[i.type] ?? i.type) ?? 0) + i.balance);
-  const parts = [{ name: "Contas", value: netWorth?.cash ?? 0 }, ...[...byType.entries()].map(([name, value]) => ({ name, value }))].filter((p) => p.value > 0);
+  const manualTotal = data.manualAssets.reduce((t, a) => t + a.value, 0);
+  const parts = [
+    { name: "Contas", value: netWorth?.cash ?? 0 },
+    ...[...byType.entries()].map(([name, value]) => ({ name, value })),
+    ...data.manualAssets.map((a) => ({ name: a.name, value: a.value })),
+  ].filter((p) => p.value > 0);
   const gross = parts.reduce((s, p) => s + p.value, 0) || 1;
   const slices = parts
     .sort((a, b) => b.value - a.value)
@@ -155,6 +160,7 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
           <div className="hero-delta">
             <span>Contas {brl(netWorth?.cash ?? 0)}</span>
             <span>Investimentos {brl(netWorth?.investments ?? 0)}</span>
+            {manualTotal > 0 && <span>Empréstimos {brl(manualTotal)}</span>}
             <span className="down">Cartões a pagar {brl(netWorth?.cardDebt ?? 0)}</span>
             {yearAgo && yearAgo.total > 0 && (
               <span className={total >= yearAgo.total ? "up" : "down"}>
@@ -414,7 +420,8 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
           <div className="card-title">
             <h3>Investimentos</h3>
             <span className="card-sub" style={{ margin: 0 }}>
-              {brl(netWorth?.investments ?? 0)} · valorizou +{brl(data.investments.reduce((t, i) => t + (i.gain ?? 0), 0) + gainsGoneTotal)}
+              {brl((netWorth?.investments ?? 0) + manualTotal)} · valorizou +
+              {brl(data.investments.reduce((t, i) => t + (i.gain ?? 0), 0) + gainsGoneTotal + data.manualAssets.reduce((t, a) => t + a.value - a.principal, 0))}
             </span>
           </div>
           <p className="card-sub">
@@ -450,6 +457,21 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
                     <td>{i.lastTwelveMonthsRate !== null ? `${(i.lastTwelveMonthsRate * (Math.abs(i.lastTwelveMonthsRate) < 1 ? 100 : 1)).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—"}</td>
                   </tr>
                 ))}
+              {data.manualAssets.map((a) => (
+                <tr key={a.id}>
+                  <td>
+                    {a.name}
+                    <small>
+                      {" "}
+                      · fora dos bancos · {(a.monthlyRate * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% a.m. desde {a.start.slice(8, 10)}/{a.start.slice(5, 7)}/
+                      {a.start.slice(2, 4)} · {brl(a.principal)} emprestados
+                    </small>
+                  </td>
+                  <td>{brl(a.value)}</td>
+                  <td className="up">+{brl(a.value - a.principal)}</td>
+                  <td>{((Math.pow(1 + a.monthlyRate, 12) - 1) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

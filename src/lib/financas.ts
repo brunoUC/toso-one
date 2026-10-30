@@ -78,6 +78,7 @@ export type Overview = {
   goals: FinGoal[];
   budget: { lineId: string; limit: number }[];
   gainsGone: { name: string; bank: string; gain: number }[];
+  manualAssets: { id: string; name: string; principal: number; start: string; monthlyRate: number; note: string | null; value: number }[];
   rulesCount: number;
   txCount: number;
 };

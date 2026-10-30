@@ -2,7 +2,7 @@ import { internalQueryGeneric as internalQuery, mutationGeneric as mutation, que
 import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from "convex/server";
 import { v, type GenericId } from "convex/values";
 import { assertServer } from "../guard";
-import { insights, investmentGains, monthly, netWorthSeries, recurring, type InvLite, type InvTxLite, type LeanTx, type Snapshot } from "./analytics";
+import { insights, investmentGains, manualGainsByMonth, manualValue, monthly, netWorthSeries, recurring, type InvLite, type InvTxLite, type LeanTx, type ManualAsset, type Snapshot } from "./analytics";
 import { factsOf, loadOwners, NO_OWNERS } from "./sync";
 import { bestRuleFor, CATEGORIES, categoryOf, classify, GROUPS, norm, ruleMatches, type Custom, type Rule } from "./taxonomy";
 
@@ -42,7 +42,11 @@ async function buildOverview(ctx: GenericQueryCtx<GenericDataModel>) {
     const txs = (await ctx.db.query("finTx").withIndex("by_date", (q) => q.gte("date", from)).collect()).map(lean);
 
     const gains = investmentGains(allInvestments as unknown as InvLite[], invTx, now);
-    const months = monthly(txs, custom, now).map((m) => ({ ...m, gains: gains.byMonth[m.key] ?? 0 }));
+    const manualRows = await ctx.db.query("finManualAssets").collect();
+    const manualAssets = manualRows as unknown as ManualAsset[];
+    const base = monthly(txs, custom, now);
+    const manualGains = manualGainsByMonth(manualAssets, base.map((m) => m.key), now);
+    const months = base.map((m) => ({ ...m, gains: (gains.byMonth[m.key] ?? 0) + (manualGains[m.key] ?? 0), manualGains: manualGains[m.key] ?? 0 }));
     const gainOf = new Map(gains.items.map((g) => [g.investmentId, g]));
     const rec = recurring(txs, custom, now);
     const pending = txs.filter((t) => t.category === "a-classificar");
@@ -121,6 +125,15 @@ async function buildOverview(ctx: GenericQueryCtx<GenericDataModel>) {
       // Em texto: os nomes de grupo têm acento e o Convex só aceita chaves ASCII.
       monthsJson: JSON.stringify(months),
       // Valorização dos que já foram resgatados (somem da lista de hoje).
+      manualAssets: manualRows.map((a) => ({
+        id: a._id as string,
+        name: a.name as string,
+        principal: a.principal as number,
+        start: a.start as string,
+        monthlyRate: a.monthlyRate as number,
+        note: (a.note as string | undefined) ?? null,
+        value: manualValue(a as unknown as ManualAsset, now),
+      })),
       gainsGone: gains.items.filter((g) => g.gone).map((g) => ({ name: g.name, bank: g.bank, gain: g.gain })),
       recurring: rec,
       unclassified,

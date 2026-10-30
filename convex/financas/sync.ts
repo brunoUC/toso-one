@@ -7,6 +7,7 @@ import {
 import { v } from "convex/values";
 import { assertServer } from "../guard";
 import { allTransactions, apiKey, get } from "./pluggyClient";
+import { manualValue, type ManualAsset } from "./analytics";
 import { classify, norm, type Rule, type TxFacts } from "./taxonomy";
 import type { GenericDatabaseReader, GenericDataModel } from "convex/server";
 
@@ -553,9 +554,18 @@ export const snapshot = internalMutation({
     const investments = inv.reduce((s, i) => s + (i.balance as number), 0);
     const invested = inv.reduce((s, i) => s + ((i.invested as number | undefined) ?? (i.balance as number)), 0);
     const date = brDate(Date.now());
-    const doc = { date, cash, investments, cardDebt, invested, total: cash + investments - cardDebt };
+    const manualAssets = (await ctx.db.query("finManualAssets").collect()) as unknown as ManualAsset[];
+    const manual = manualAssets.reduce((s, a) => s + manualValue(a, date), 0);
+    const doc = { date, cash, investments, cardDebt, invested, manual, total: cash + investments + manual - cardDebt };
     const row = await ctx.db.query("finNetWorth").withIndex("by_date", (q) => q.eq("date", date)).unique();
     if (row) await ctx.db.replace(row._id, doc);
     else await ctx.db.insert("finNetWorth", doc);
+  },
+});
+
+export const addManualAsset = internalMutation({
+  args: { name: v.string(), principal: v.number(), start: v.string(), monthlyRate: v.number(), note: v.optional(v.string()) },
+  handler: async (ctx, a) => {
+    await ctx.db.insert("finManualAssets", { ...a, createdAt: Date.now() });
   },
 });

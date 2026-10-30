@@ -139,6 +139,7 @@ export default defineSchema({
     investments: v.number(),
     cardDebt: v.number(),
     total: v.number(),
+    manual: v.optional(v.number()), // ativos fora da Pluggy (empréstimos etc.)
     invested: v.number(), // soma do "quanto foi aplicado" dos investimentos
   }).index("by_date", ["date"]),
 
@@ -163,6 +164,17 @@ export default defineSchema({
   // Limite mensal de cada linha do orçamento (src/lib/fin-budget.ts) que ele
   // mudou na página; sem linha aqui vale o limite padrão do arquivo.
   finBudget: defineTable({ lineId: v.string(), limit: v.number() }).index("by_lineId", ["lineId"]),
+
+  // Ativos que não passam pela Pluggy (ex.: empréstimo ao pai a 1% a.m.).
+  // O valor de hoje sai do principal com juros compostos desde o início.
+  finManualAssets: defineTable({
+    name: v.string(),
+    principal: v.number(),
+    start: v.string(), // AAAA-MM-DD
+    monthlyRate: v.number(), // 0.01 = 1% ao mês
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+  }),
 
   finGoals: defineTable({
     name: v.string(),
