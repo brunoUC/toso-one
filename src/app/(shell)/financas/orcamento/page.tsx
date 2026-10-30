@@ -169,8 +169,31 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
 
       <div className="fin-head rise">
         <div>
-          <p className="hero-label">{annual ? `Orçamento pessoal de ${label}` : "Orçamento pessoal por mês"}</p>
-          <p className="hero-figure">{brl(totalPeriod)}</p>
+          <p className="hero-label">{`Orçamento pessoal de ${label}`}</p>
+          <div className="bud-hero">
+            <p className="hero-figure">{brl(totalPeriod)}</p>
+            <div className={`bud-hero-spent ${spentNow > totalPeriod ? "over" : spentNow > totalPeriod * pace ? "warn" : "ok"}`}>
+              <span>
+                gasto{isNow ? " até hoje" : ""} <b>{brl(spentNow)}</b>
+              </span>
+              <span className="bud-hero-bar" aria-hidden="true">
+                <i style={{ width: `${Math.min(1, spentNow / Math.max(1, totalPeriod)) * 100}%` }} />
+                {isNow && <em style={{ left: `${pace * 100}%` }} />}
+              </span>
+              <span>
+                {spentNow > totalPeriod ? (
+                  <>
+                    estourou <b>{brl(spentNow - totalPeriod)}</b>
+                  </>
+                ) : (
+                  <>
+                    restam <b>{brl(totalPeriod - spentNow)}</b>
+                  </>
+                )}
+                {isNow ? ` · ${Math.round(pace * 100)}% ${unit} já passou` : ""}
+              </span>
+            </div>
+          </div>
           <div className="hero-delta">
             {annual && <span>{brl(total)}/mês</span>}
             <span className={inRange ? "up" : "down"}>
@@ -188,31 +211,21 @@ export default async function OrcamentoPage({ searchParams }: { searchParams: Pr
       </div>
 
       <div className="grid">
-        <div className="card tile span-3">
-          <div className="label">
-            Gasto em {label}
-            {isNow && !annual ? " até hoje" : ""}
-          </div>
-          <div className="value">{brl(spentNow)}</div>
-          <div className={`delta ${spentNow <= totalPeriod * pace ? "up" : "down"}`}>
-            {Math.round((spentNow / totalPeriod) * 100)}% do orçamento{isNow ? ` com ${Math.round(pace * 100)}% ${unit}` : ""}
-          </div>
-        </div>
-        <div className="card tile span-3">
+        <div className="card tile span-4">
           <div className="label">{isNow ? `Projeção para ${annual ? year : label}` : `Fechou ${label}`}</div>
           <div className="value">{brl(projected)}</div>
           <div className={`delta ${projected <= totalPeriod ? "up" : "down"}`}>
             {projected <= totalPeriod ? `${brl(totalPeriod - projected)} abaixo` : `${brl(projected - totalPeriod)} acima`} do orçamento
           </div>
         </div>
-        <div className="card tile span-3">
+        <div className="card tile span-4">
           <div className="label">Fora do orçamento em {label}</div>
           <div className="value">{brl(looseRows.reduce((s, [, e]) => s + e.now, 0))}</div>
           <div className="delta down">
             <Link href={`/financas/extrato?mes=${lastKey}&cat=a-classificar`}>a classificar e categorias novas</Link>
           </div>
         </div>
-        <div className="card tile span-3">
+        <div className="card tile span-4">
           <div className="label">Reembolso da empresa a receber</div>
           <div className="value">{brl(Math.max(0, toReceive))}</div>
           <div className="delta">

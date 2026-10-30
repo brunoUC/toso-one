@@ -128,7 +128,7 @@ export function FinanceDashboard({ data, alerts }: { data: Overview; alerts: { b
   return (
     <>
       <div className="fin-top">
-        <FinNav active="/financas" />
+        <FinNav active="/financas/painel" />
         <div className="fin-sync">
           <span>
             {data.items.map((i) => i.bank).join(" · ")} · lido{" "}
