@@ -22,6 +22,9 @@ export type LeanTx = {
   category: string;
   categorySource: string;
   note?: string;
+  reimbLaunchedAt?: number;
+  // "14:32" em Brasília, só quando o banco manda o horário de verdade.
+  time?: string;
 };
 
 export type Snapshot = { date: string; cash: number; investments: number; cardDebt: number; total: number; invested: number; manual?: number };

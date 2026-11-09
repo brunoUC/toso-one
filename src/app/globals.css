@@ -1235,3 +1235,20 @@ a.origin-tab:hover { border-color: var(--ink-2); }
 .wk-more .wk-sources { margin-top: 8px; }
 .wk-sources a { color: var(--ink-2); overflow-wrap: anywhere; }
 @media (max-width: 640px) { .wk-cols { grid-template-columns: 1fr; } }
+
+/* Extrato: gastos da empresa e reembolso */
+.hero-delta .warn { color: var(--sand); }
+.fin-latest { margin: 6px 0 0; font-size: 12px; color: var(--ink-3); }
+.fin-latest .stale { color: var(--sand); }
+.tx-side { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 8px; justify-self: end; }
+.reimb {
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap;
+  font: 500 11px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--sand);
+  padding: 5px 8px; border-radius: 999px; border: 1px solid var(--sand-line, var(--hairline-strong));
+}
+.reimb input { margin: 0; width: 14px; height: 14px; accent-color: var(--up); cursor: pointer; }
+.reimb.on { color: var(--up); border-color: color-mix(in srgb, var(--up) 40%, transparent); background: color-mix(in srgb, var(--up) 8%, transparent); }
+.reimb.bad { color: var(--down); border-color: var(--down); }
+@media (max-width: 640px) {
+  .tx-side { grid-column: 1; justify-self: start; }
+}

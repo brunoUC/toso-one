@@ -143,8 +143,9 @@ export async function getTxList(from: string, to: string): Promise<{
   rows: LeanTx[];
   accounts: { accountId: string; bank: string; type: string; name: string }[];
   custom: Custom[];
+  latest: Record<string, string>; // banco → data do último lançamento
 }> {
-  if (!convexConfigured()) return { rows: [], accounts: [], custom: [] };
+  if (!convexConfigured()) return { rows: [], accounts: [], custom: [], latest: {} };
   return convex().query(api.financas.data.txList, { secret: serverSecret(), from, to });
 }
 

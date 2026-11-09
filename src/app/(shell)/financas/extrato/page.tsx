@@ -5,12 +5,14 @@ import { CATEGORIES, GROUPS, categoryOf } from "@/lib/fin-taxonomy";
 import { brlCents, dayLabel, getTxList, lastDay, METHOD_LABEL, monthName, shiftMonth, type LeanTx } from "@/lib/financas";
 import { CategoryPicker } from "@/components/fin/CategoryPicker";
 import { LiveSearch } from "@/components/fin/LiveSearch";
+import { ReimbCheck } from "@/components/fin/ReimbCheck";
 import { BUDGET } from "@/lib/fin-budget";
 import { FinNav } from "../FinNav";
 
 export const metadata: Metadata = { title: "Extrato · Finanças" };
 
-type Search = { mes?: string; de?: string; ate?: string; conta?: string; tipo?: string; cat?: string; linha?: string; q?: string; dir?: string };
+// reemb: gastos da empresa por situação do reembolso ("falta" ou "lancado").
+type Search = { mes?: string; de?: string; ate?: string; conta?: string; tipo?: string; cat?: string; linha?: string; q?: string; dir?: string; reemb?: string };
 
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const monthLabelShort = (k: string) => `${MONTHS[Number(k.slice(5, 7)) - 1]}/${k.slice(2, 4)}`;
@@ -28,15 +30,23 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
   // orçamento). Com busca, o último ano inteiro. Sem nada, o mês.
   const isMonth = (v?: string) => /^\d{4}-\d{2}$/.test(v ?? "");
   const range = isMonth(sp.de) && isMonth(sp.ate) && sp.de! <= sp.ate! ? { de: sp.de!, ate: sp.ate! } : null;
-  const from = range ? `${range.de}-01` : q ? `${shiftMonth(thisMonth(), -12)}-01` : `${month}-01`;
-  const to = range ? lastDay(range.ate) : q ? lastDay(thisMonth()) : lastDay(month);
-  const { rows, accounts, custom } = await getTxList(from, to);
+  // "Falta lançar" olha o último ano inteiro: o que importa é não esquecer nada.
+  const reemb = sp.reemb === "falta" || sp.reemb === "lancado" ? sp.reemb : null;
+  const wide = Boolean(q) || reemb === "falta";
+  const from = range ? `${range.de}-01` : wide ? `${shiftMonth(thisMonth(), -12)}-01` : `${month}-01`;
+  const to = range ? lastDay(range.ate) : wide ? lastDay(thisMonth()) : lastDay(month);
+  const { rows, accounts, custom, latest } = await getTxList(from, to);
+  // Gasto da empresa: categoria do grupo Empresa, saindo dinheiro.
+  const isBiz = (t: LeanTx) => categoryOf(t.category, custom).kind === "business";
+  const bizExpense = (t: LeanTx) => isBiz(t) && t.amount < 0;
+  const empresa = Boolean(reemb) || sp.cat === "grupo:Empresa";
 
   const filtered = rows.filter((t) => {
     if (sp.conta && t.accountId !== sp.conta) return false;
     if (sp.tipo && t.method !== sp.tipo) return false;
     if (sp.dir === "saida" && t.amount >= 0) return false;
     if (sp.dir === "entrada" && t.amount < 0) return false;
+    if (reemb && (!bizExpense(t) || (reemb === "falta") === Boolean(t.reimbLaunchedAt))) return false;
     if (line && !line.categories.includes(t.category)) return false;
     if (sp.cat) {
       const cat = categoryOf(t.category, custom);
@@ -69,11 +79,24 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
       if (m && categoryOf(t.category, custom).kind === "expense") m.total -= t.amount;
     }
   }
+  // Empresa: quanto foi gasto, quanto já entrou no pedido de reembolso e
+  // quanto falta lançar, sobre o que está na tela.
+  const biz = { total: 0, launched: 0, pending: 0, nPending: 0 };
+  for (const t of filtered) {
+    if (!bizExpense(t)) continue;
+    biz.total -= t.amount;
+    if (t.reimbLaunchedAt) biz.launched -= t.amount;
+    else {
+      biz.pending -= t.amount;
+      biz.nPending++;
+    }
+  }
+  const staleBefore = new Date(Date.now() - 3 * 3600_000 - 3 * 86_400_000).toISOString().slice(0, 10);
   const topCats = [...byCat.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 6);
 
   const link = (patch: Partial<Search>) => {
     const p = new URLSearchParams();
-    const merged = { ...sp, mes: month, ...patch };
+    const merged = { ...sp, mes: wide && !sp.mes ? undefined : month, ...patch };
     for (const [k, val] of Object.entries(merged)) if (val) p.set(k, val);
     return `/financas/extrato?${p}`;
   };
@@ -95,6 +118,8 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
             </h1>
           ) : q ? (
             <h1 className="fin-month">“{sp.q}” nos últimos 12 meses</h1>
+          ) : reemb === "falta" ? (
+            <h1 className="fin-month">Empresa: falta lançar</h1>
           ) : (
             <h1 className="fin-month">
               <Link href={link({ mes: shiftMonth(month, -1) })} aria-label="Mês anterior">‹</Link>
@@ -104,10 +129,36 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
           )}
           <div className="hero-delta">
             <span>{filtered.length} movimentações</span>
-            <span className="down">Gastos {brlCents(spend)}</span>
-            {range && <span>média {brlCents(spend / rangeMonths.length)}/mês em {rangeMonths.length} meses</span>}
-            <span className="up">Receitas {brlCents(income)}</span>
+            {empresa ? (
+              <>
+                <span className="down">Gastos da empresa {brlCents(biz.total)}</span>
+                <span>lançados {brlCents(biz.launched)}</span>
+                <span className={biz.pending > 0 ? "warn" : "up"}>
+                  falta lançar {brlCents(biz.pending)}
+                  {reemb === "falta" ? " nos últimos 12 meses" : ""}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="down">Gastos {brlCents(spend)}</span>
+                {range && <span>média {brlCents(spend / rangeMonths.length)}/mês em {rangeMonths.length} meses</span>}
+                <span className="up">Receitas {brlCents(income)}</span>
+              </>
+            )}
           </div>
+          {Object.keys(latest).length > 0 && (
+            <p className="fin-latest">
+              Último lançamento recebido:{" "}
+              {Object.entries(latest)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([bank, d], i) => (
+                  <span key={bank} className={d < staleBefore ? "stale" : undefined}>
+                    {i ? " · " : ""}
+                    {bank} {d.slice(8, 10)}/{d.slice(5, 7)}
+                  </span>
+                ))}
+            </p>
+          )}
         </div>
       </div>
 
@@ -160,12 +211,25 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
         <button className="btn btn-primary btn-sm" type="submit">
           Filtrar
         </button>
-        {(sp.q || sp.conta || sp.tipo || sp.cat || sp.dir || line) && (
+        {reemb && <input type="hidden" name="reemb" value={reemb} />}
+        {(sp.q || sp.conta || sp.tipo || sp.cat || sp.dir || line || reemb) && (
           <Link className="link-btn" href={`/financas/extrato?mes=${month}`}>
             Limpar
           </Link>
         )}
       </form>
+
+      <div className="fin-chips" role="group" aria-label="Gastos da empresa">
+        <Link className={`chip${empresa && !reemb ? " active" : ""}`} href={empresa && !reemb ? `/financas/extrato?mes=${month}` : `/financas/extrato?mes=${month}&cat=grupo:Empresa`}>
+          Empresa
+        </Link>
+        <Link className={`chip${reemb === "falta" ? " active" : " warn"}`} href={reemb === "falta" ? `/financas/extrato?mes=${month}&cat=grupo:Empresa` : "/financas/extrato?reemb=falta"}>
+          Falta lançar no reembolso
+        </Link>
+        <Link className={`chip${reemb === "lancado" ? " active" : ""}`} href={reemb === "lancado" ? `/financas/extrato?mes=${month}&cat=grupo:Empresa` : `/financas/extrato?mes=${month}&reemb=lancado`}>
+          Já lançados
+        </Link>
+      </div>
 
       {line && (
         <div className="fin-chips">
@@ -239,12 +303,16 @@ export default async function ExtratoPage({ searchParams }: { searchParams: Prom
                           <b>{t.merchantName ?? t.counterpartName ?? t.description}</b>
                           <small>
                             {(t.merchantName || t.counterpartName) && t.description !== (t.merchantName ?? t.counterpartName) ? `${t.description} · ` : ""}
+                            {t.time ? `${t.time} · ` : ""}
                             {accName.get(t.accountId)}
                             {t.installments && t.installments > 1 ? ` · parcela ${t.installment}/${t.installments}` : ""}
                             {t.status === "PENDING" ? " · pendente" : ""}
                           </small>
                         </Link>
-                        <CategoryPicker txId={t.txId} category={t.category} custom={custom} who={t.counterpartName ?? t.merchantName ?? t.description} />
+                        <span className="tx-side">
+                          {bizExpense(t) && <ReimbCheck txId={t.txId} launchedAt={t.reimbLaunchedAt ?? null} />}
+                          <CategoryPicker txId={t.txId} category={t.category} custom={custom} who={t.counterpartName ?? t.merchantName ?? t.description} />
+                        </span>
                         <span className={`tx-amt ${t.amount < 0 ? "" : "up"}`}>{brlCents(t.amount)}</span>
                       </li>
                     );

@@ -85,6 +85,8 @@ export default defineSchema({
     category: v.string(),
     categorySource: v.string(), // user | rule | auto | mcc | pluggy | ai | none
     note: v.optional(v.string()),
+    // Gasto da empresa já lançado no pedido de reembolso (quando foi marcado).
+    reimbLaunchedAt: v.optional(v.number()),
     aiTriedAt: v.optional(v.number()), // o Claude já olhou (e talvez não soube)
     syncedAt: v.number(),
   })

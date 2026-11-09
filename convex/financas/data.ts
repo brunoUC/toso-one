@@ -13,9 +13,27 @@ import { bestRuleFor, CATEGORIES, categoryOf, classify, GROUPS, norm, ruleMatche
 const today = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
 
 function lean(r: Record<string, unknown>): LeanTx {
-  const { _id, _creationTime, counterpartDoc, syncedAt, itemId, at, ...rest } = r;
-  void _id, _creationTime, counterpartDoc, syncedAt, itemId, at;
-  return rest as unknown as LeanTx;
+  const { _id, _creationTime, counterpartDoc, syncedAt, itemId, at, aiTriedAt, ...rest } = r;
+  void _id, _creationTime, counterpartDoc, syncedAt, itemId, aiTriedAt;
+  const time = realTime(at as string, r.accountType as string);
+  return { ...(rest as unknown as LeanTx), ...(time ? { time } : {}) };
+}
+
+// Horário da movimentação em Brasília, quando o banco manda um de verdade.
+// Medido em nov/2026 no "date" da Pluggy:
+// - só data: meia-noite de Brasília (03:00:00.000Z) ou 00:00:00.000Z;
+// - cartão Bradesco: o horário é o da sincronização (dezenas de compras com
+//   o mesmo milissegundo); horário de compra de cartão vem em segundos
+//   inteiros, então cartão com milissegundos não é horário de compra.
+// Santander (conta e cartão), Bradesco conta e XP mandam o horário real.
+export function realTime(at: string | undefined, accountType: string): string | undefined {
+  const m = /T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?/.exec(at ?? "");
+  if (!m) return undefined;
+  const [, hh, mm, ss, ms = "000"] = m;
+  if (mm === "00" && ss === "00" && ms === "000" && (hh === "03" || hh === "00")) return undefined;
+  if (accountType === "CREDIT" && ms !== "000") return undefined;
+  const d = new Date(Date.parse(at!) - 3 * 3600_000);
+  return d.toISOString().slice(11, 16);
 }
 
 export const itemsInternal = internalQuery({
@@ -180,7 +198,15 @@ export const txList = query({
       .collect();
     const accounts = await ctx.db.query("finAccounts").collect();
     const custom = await ctx.db.query("finCategories").collect();
+    // Data do último lançamento recebido de cada banco, para o extrato
+    // avisar quando um banco parou de mandar movimentações.
+    const latest: Record<string, string> = {};
+    for (const t of await ctx.db.query("finTx").withIndex("by_date").order("desc").take(400)) {
+      const bank = t.bank as string;
+      if (!latest[bank]) latest[bank] = t.date as string;
+    }
     return {
+      latest,
       rows: rows.map(lean),
       accounts: accounts.map((a) => ({ accountId: a.accountId as string, bank: a.bank as string, type: a.type as string, name: a.name as string })),
       custom: custom as unknown as Custom[],
@@ -324,6 +350,17 @@ export const setNote = mutation({
     assertServer(secret);
     const row = await ctx.db.query("finTx").withIndex("by_txId", (q) => q.eq("txId", txId)).unique();
     if (row) await ctx.db.patch(row._id, { note: note.trim().slice(0, 500) || undefined });
+  },
+});
+
+// Marca (ou desmarca) um gasto da empresa como já lançado no reembolso.
+export const setReimbursed = mutation({
+  args: { secret: v.string(), txId: v.string(), launched: v.boolean() },
+  handler: async (ctx, { secret, txId, launched }) => {
+    assertServer(secret);
+    const row = await ctx.db.query("finTx").withIndex("by_txId", (q) => q.eq("txId", txId)).unique();
+    if (!row) throw new Error("Movimentação não encontrada.");
+    await ctx.db.patch(row._id, { reimbLaunchedAt: launched ? Date.now() : undefined });
   },
 });
 

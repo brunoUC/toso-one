@@ -8,6 +8,7 @@ type Body =
   | { action: "categorize"; txId: string; category: string; applySimilar: boolean }
   | { action: "reset"; txId: string }
   | { action: "note"; txId: string; note: string }
+  | { action: "reimb"; txId: string; launched: boolean }
   | { action: "deleteRule"; ruleId: string }
   | { action: "addCategory"; name: string; group: string }
   | { action: "saveGoal"; id?: string; name: string; target: number; deadline?: string; source: string; manualValue?: number; scope?: string }
@@ -35,6 +36,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true });
       case "note":
         await c.mutation(api.financas.data.setNote, { secret, txId: str(b.txId), note: str(b.note, 500) });
+        return NextResponse.json({ ok: true });
+      case "reimb":
+        await c.mutation(api.financas.data.setReimbursed, { secret, txId: str(b.txId), launched: Boolean(b.launched) });
         return NextResponse.json({ ok: true });
       case "deleteRule":
         await c.mutation(api.financas.data.deleteRule, { secret, ruleId: str(b.ruleId) });

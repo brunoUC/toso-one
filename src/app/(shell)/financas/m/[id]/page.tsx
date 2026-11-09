@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/auth";
 import { categoryOf } from "@/lib/fin-taxonomy";
 import { brlCents, getTx, METHOD_LABEL, SOURCE_LABEL } from "@/lib/financas";
 import { FinNav } from "../../FinNav";
+import { ReimbCheck } from "@/components/fin/ReimbCheck";
 import { CategoryEditor } from "./CategoryEditor";
 
 export const metadata: Metadata = { title: "Movimentação · Finanças" };
@@ -54,7 +55,11 @@ export default async function TxPage({ params }: { params: Promise<{ id: string 
           <h1 className="fin-title">{who}</h1>
           <p className={`hero-figure ${tx.amount < 0 ? "" : "up"}`}>{brlCents(tx.amount)}</p>
           <div className="hero-delta">
-            <span>{new Date(tx.at).toLocaleString("pt-BR", { dateStyle: "full", timeStyle: "short", timeZone: "America/Sao_Paulo" })}</span>
+            <span>
+              {new Date(tx.date + "T12:00:00Z").toLocaleDateString("pt-BR", { dateStyle: "full", timeZone: "UTC" })}
+              {tx.time ? ` às ${tx.time}` : ""}
+            </span>
+            {cat.kind === "business" && tx.amount < 0 && <ReimbCheck txId={tx.txId} launchedAt={tx.reimbLaunchedAt ?? null} />}
             {tx.installments && tx.installments > 1 && (
               <span>
                 parcela {tx.installment} de {tx.installments}

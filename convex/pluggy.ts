@@ -176,3 +176,33 @@ export const investmentTxProbe = internalAction({
     return out;
   },
 });
+
+// Situação de cada conexão do Meu Pluggy, sem dados pessoais: quando a
+// Pluggy atualizou, o que ela diz do banco por trás e quando atualiza de novo.
+export const itemInfo = internalAction({
+  args: { itemIds: v.array(v.string()) },
+  handler: async (_ctx, { itemIds }) => {
+    const key = await apiKey();
+    const out = [];
+    for (const id of itemIds) {
+      const it = await get<Record<string, unknown>>(key, `/items/${id}`);
+      const pick = (k: string) => it[k] ?? null;
+      out.push({
+        id,
+        status: pick("status"),
+        executionStatus: pick("executionStatus"),
+        statusDetail: pick("statusDetail"),
+        error: pick("error"),
+        lastUpdatedAt: pick("lastUpdatedAt"),
+        nextAutoSyncAt: pick("nextAutoSyncAt"),
+        autoSyncDisabledAt: pick("autoSyncDisabledAt"),
+        updatedAt: pick("updatedAt"),
+        resourcesCollectedAt: pick("resourcesCollectedAt"),
+        hasResourcesPendingAuthorization: pick("hasResourcesPendingAuthorization"),
+        products: pick("products"),
+        userAction: pick("userAction"),
+      });
+    }
+    return out;
+  },
+});
