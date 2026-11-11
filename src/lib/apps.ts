@@ -9,7 +9,7 @@ export type AppEntry = {
   name: string;
   description: string;
   href: string;
-  icon: "plane" | "chart" | "cpu";
+  icon: "plane" | "chart" | "cpu" | "camera";
   tone: Tone;
   private: boolean;
   status: "live" | "beta" | "soon";
@@ -33,6 +33,16 @@ export const APPS: AppEntry[] = [
     href: "/financas",
     icon: "chart",
     tone: "emerald",
+    private: true,
+    status: "beta",
+  },
+  {
+    id: "feed",
+    name: "Feed",
+    description: "Instagram só de quem você segue, por data",
+    href: "/feed",
+    icon: "camera",
+    tone: "violet",
     private: true,
     status: "beta",
   },
