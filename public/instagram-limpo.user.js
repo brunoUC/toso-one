@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Instagram limpo (toso one)
 // @namespace    https://toso-one.vercel.app
-// @version      1.0.0
+// @version      1.1.0
 // @description  O Instagram de verdade, só com o feed de quem você segue (por data) e a busca. Sem Reels, Stories, Explorar, sugestões e anúncios.
 // @match        https://www.instagram.com/*
 // @run-at       document-start
@@ -56,11 +56,23 @@
   addEventListener("popstate", route);
 
   // ── CSS: o que dá para esconder só pelo link ────────────────────────────
+  // Reels: a aba de baixo (no celular ela aponta para um reel específico,
+  // /reels/<código>/), a aba Reels dos perfis (/<perfil>/reels/), qualquer
+  // botão com o ícone "Reels" e os reels que aparecem no meio do feed (o
+  // link deles é /reel/<código>/).
   const css = `
-    a[href="/reels/"], a[href^="/reels/?"],
+    a[href^="/reels/"], a[href$="/reels/"], a[href*="/reels/?"],
+    a:has(svg[aria-label="Reels"]), [role="link"]:has(svg[aria-label="Reels"]),
+    article:has(a[href*="/reel/"]),
     a[href*="threads.net"], a[href*="threads.com"],
     a[href^="/stories/"],
     [data-toso-hide] { display: none !important; }
+    #toso-ig-ok {
+      position: fixed; z-index: 2147483647; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 8px);
+      transform: translateX(-50%); padding: 6px 12px; border-radius: 999px;
+      font: 600 12px/1 -apple-system, system-ui, sans-serif; color: #fff; background: rgba(20, 20, 24, .82);
+      pointer-events: none; transition: opacity .6s;
+    }
   `;
   function addCss() {
     // Em document-start a página pode ainda não ter nem o <html>: tenta de
@@ -113,9 +125,28 @@
     return t.length < 40 && list.some((w) => t === w);
   }
 
+  // Aviso rápido ao abrir: se ele aparece, o ajuste está rodando.
+  let badged = false;
+  function badge() {
+    if (badged || !document.body) return;
+    badged = true;
+    const b = document.createElement("div");
+    b.id = "toso-ig-ok";
+    b.textContent = "Instagram limpo ✓";
+    document.body.appendChild(b);
+    setTimeout(() => (b.style.opacity = "0"), 1800);
+    setTimeout(() => b.remove(), 2600);
+  }
+
   function clean() {
     if (!document.body) return;
+    badge();
     const main = document.querySelector("main") || document.body;
+
+    // Reels no meio do feed, para Safari sem :has(): o post cujo link é /reel/.
+    for (const a of main.querySelectorAll('a[href*="/reel/"]')) hide(a.closest("article"));
+    // Ícone "Reels" da barra de baixo e das abas do perfil.
+    for (const svg of document.querySelectorAll('svg[aria-label="Reels"]')) hide(svg.closest('a, [role="link"], [role="tab"]'));
 
     // Explorar → Busca, inclusive na barra de baixo do celular.
     for (const a of document.querySelectorAll('a[href="/explore/"]')) a.setAttribute("href", "/explore/search/");

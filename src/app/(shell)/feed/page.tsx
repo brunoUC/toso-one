@@ -97,12 +97,15 @@ export default async function FeedPage() {
         <h2>O que o ajuste faz</h2>
         <ul className="feed-list">
           <li>A página inicial abre sempre em <b>Seguindo</b>: só quem você segue, por data.</li>
-          <li>Esconde a aba e as páginas de Reels, a fileira de Stories e os destaques.</li>
+          <li>Esconde a aba de Reels, os reels no meio do feed, a fileira de Stories e os destaques.</li>
           <li>Explorar vira a Busca (perfis, lugares, restaurantes, hashtags).</li>
           <li>Esconde sugestões de perfis e de posts, anúncios e o Threads.</li>
           <li>Curtir, comentar, perfis e mensagens continuam como no Instagram.</li>
         </ul>
-        <p className="form-note">Se algo que devia sumir aparecer, me mande um print: o Instagram muda a página com frequência e o ajuste se atualiza sozinho.</p>
+        <p className="form-note">
+          Ao abrir o Instagram, aparece <b>“Instagram limpo ✓”</b> por um instante no topo: é o sinal de que o ajuste está rodando. Se não aparecer, refaça o
+          passo 3. Quando o ajuste mudar, abra o link do passo 3 de novo e toque em <b>Install</b> para pegar a versão nova.
+        </p>
       </section>
 
       {old && (old.session || old.posts) && (
