@@ -1307,7 +1307,38 @@ a.origin-tab:hover { border-color: var(--ink-2); }
 .ig-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, .5); }
 .ig-dots i.on { background: #fff; }
 .ig-post-body { padding: 10px 14px 14px; }
-.ig-stats { display: flex; align-items: center; gap: 14px; font-size: 12.5px; color: var(--ink-2); }
+.ig-stats { display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--ink-2); }
+.ig-act { display: inline-flex; align-items: center; gap: 6px; padding: 4px 2px; border: 0; background: none; color: var(--ink-1); font-size: 13px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ig-act span { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.ig-act.liked svg { fill: var(--down); stroke: var(--down); }
+@media (prefers-reduced-motion: no-preference) { .ig-act.liked svg { animation: ig-pop .3s ease-out; } }
+@keyframes ig-pop { 40% { transform: scale(1.25); } }
+.ig-burst { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; color: #fff; filter: drop-shadow(0 4px 16px rgba(0,0,0,.35)); animation: ig-burst .8s ease-out forwards; }
+.ig-burst svg { fill: #fff; }
+@keyframes ig-burst { 0% { opacity: 0; transform: scale(.5); } 20% { opacity: 1; transform: scale(1.1); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
+.ig-media { touch-action: manipulation; }
+.ig-cmt-more { display: block; margin-top: 6px; padding: 0; border: 0; background: none; font-size: 12.5px; color: var(--ink-3); cursor: pointer; }
+.ig-comments { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+.ig-cmts { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.ig-cmts .ig-cmts { margin-top: 10px; gap: 10px; }
+.ig-cmt { display: flex; gap: 10px; align-items: flex-start; }
+.ig-cmt-main { flex: 1; min-width: 0; }
+.ig-cmt-main p { margin: 0; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-line; }
+.ig-cmt-main a { color: var(--ink-1); text-decoration: none; }
+.ig-cmt-main b { font-weight: 500; }
+.ig-cmt-meta { display: flex; gap: 12px; margin-top: 3px; font-size: 11.5px; color: var(--ink-3); }
+.ig-cmt-meta button { padding: 0; border: 0; background: none; font: inherit; font-weight: 500; color: var(--ink-3); cursor: pointer; }
+.ig-cmt-like { flex: none; margin-top: 2px; padding: 4px; border: 0; background: none; color: var(--ink-3); cursor: pointer; }
+.ig-cmt-like.on svg { fill: var(--down); stroke: var(--down); }
+.ig-cmt-empty { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+.ig-cmt-form { margin-top: 12px; display: grid; gap: 6px; }
+.ig-replying { display: inline-flex; align-items: center; gap: 6px; justify-self: start; font-size: 12px; color: var(--ink-2); }
+.ig-replying button { display: grid; place-items: center; padding: 2px; border: 0; background: none; color: var(--ink-3); cursor: pointer; }
+.ig-cmt-row { display: flex; align-items: flex-end; gap: 8px; padding: 6px 6px 6px 12px; border-radius: 14px; background: var(--input-bg); border: 1px solid var(--hairline-strong); }
+.ig-cmt-row:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ig-cmt-row textarea { flex: 1; min-width: 0; min-height: 30px; max-height: 120px; padding: 5px 0; border: 0; outline: none; resize: none; background: none; font: inherit; font-size: 16px; line-height: 1.3; color: var(--ink-1); field-sizing: content; }
+.ig-cmt-row button { flex: none; height: 30px; padding: 0 10px; border: 0; border-radius: 9px; background: none; font-weight: 500; font-size: 13.5px; color: var(--accent); cursor: pointer; }
+.ig-cmt-row button:disabled { color: var(--ink-3); cursor: default; }
 .ig-stats > span, .ig-place { display: inline-flex; align-items: center; gap: 5px; }
 .ig-place { min-width: 0; color: var(--ink-2); text-decoration: none; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .ig-out { margin-left: auto; color: var(--ink-3); display: inline-flex; }

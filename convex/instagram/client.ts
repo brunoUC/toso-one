@@ -5,7 +5,8 @@
 // Nada de sugeridos, anúncios ou algoritmo: só quem ele segue, por data.
 //
 // Ritmo de propósito lento (ver sync.ts): o Instagram derruba sessões que
-// fazem pedidos demais. Nada aqui curte, comenta ou segue ninguém.
+// fazem pedidos demais. Curtir e comentar só acontecem quando ele toca no
+// botão; nada aqui segue ninguém nem age sozinho.
 
 export const IG = "https://www.instagram.com";
 const APP_ID = "936619743392459"; // app web do Instagram
@@ -141,10 +142,10 @@ export async function igGet<T>(jar: Jar, path: string): Promise<T> {
   return body as T;
 }
 
-async function igPost<T>(jar: Jar, path: string, form: Record<string, string>): Promise<{ status: number; body: T & Body }> {
+async function igPost<T>(jar: Jar, path: string, form: Record<string, string>, referer = `${IG}/accounts/login/`): Promise<{ status: number; body: T & Body }> {
   const res = await fetch(`${IG}${path}`, {
     method: "POST",
-    headers: headers(jar, { "Content-Type": "application/x-www-form-urlencoded", Referer: `${IG}/accounts/login/` }),
+    headers: headers(jar, { "Content-Type": "application/x-www-form-urlencoded", Referer: referer }),
     body: new URLSearchParams(form).toString(),
     redirect: "manual",
   });
@@ -239,6 +240,7 @@ export type Post = {
   location?: { pk: string; name: string };
   likes?: number;
   comments?: number;
+  liked?: boolean;
 };
 
 type RawCandidate = { url: string; width: number; height: number };
@@ -257,6 +259,7 @@ type RawMedia = {
   original_height?: number;
   location?: { pk?: string | number; name?: string } | null;
   like_count?: number;
+  has_liked?: boolean;
   comment_count?: number;
   like_and_view_counts_disabled?: boolean;
   user?: RawUser;
@@ -306,7 +309,7 @@ export function toPost(m: RawMedia, fallbackUser?: RawUser): Post | null {
   const kind: Post["kind"] = m.product_type === "clips" ? "reel" : m.media_type === 8 ? "carousel" : m.media_type === 2 ? "video" : "photo";
   const hide = m.like_and_view_counts_disabled;
   return {
-    mediaId: String(m.pk ?? m.id ?? m.code),
+    mediaId: String(m.pk ?? (String(m.id ?? "").split("_")[0] || m.code)),
     code: m.code,
     ownerPk: u.pk,
     username: u.username,
@@ -319,6 +322,7 @@ export function toPost(m: RawMedia, fallbackUser?: RawUser): Post | null {
     ...(m.location?.name ? { location: { pk: String(m.location.pk ?? ""), name: m.location.name } } : {}),
     ...(!hide && typeof m.like_count === "number" ? { likes: m.like_count } : {}),
     ...(typeof m.comment_count === "number" ? { comments: m.comment_count } : {}),
+    ...(typeof m.has_liked === "boolean" ? { liked: m.has_liked } : {}),
   };
 }
 
@@ -461,4 +465,92 @@ function uniquePosts(raw: RawMedia[]): Post[] {
     out.push(p);
   }
   return out.sort((a, b) => b.takenAt - a.takenAt);
+}
+
+// ── Curtir e comentar (só quando ele toca no botão) ─────────────────────────
+
+async function igAct<T>(jar: Jar, path: string, form: Record<string, string>, code?: string): Promise<T> {
+  const { status, body } = await igPost<T>(jar, path, form, code ? `${IG}/p/${code}/` : `${IG}/`);
+  const err = classify(status, body);
+  if (err) throw err;
+  return body;
+}
+
+const mediaPath = (mediaId: string) => {
+  if (!/^\d+$/.test(mediaId)) throw new IgError("Post inválido.", "other");
+  return mediaId;
+};
+
+export async function like(jar: Jar, mediaId: string, on: boolean, code?: string): Promise<void> {
+  await igAct(jar, `/api/v1/web/likes/${mediaPath(mediaId)}/${on ? "like" : "unlike"}/`, {}, code);
+}
+
+export type Comment = {
+  pk: string;
+  text: string;
+  at: number; // ms
+  username: string;
+  pic: string;
+  likes: number;
+  replies: number;
+  liked: boolean;
+};
+
+type RawComment = {
+  pk?: string | number;
+  id?: string | number;
+  text?: string;
+  created_at?: number;
+  created_at_utc?: number;
+  created_time?: number;
+  user?: RawUser;
+  from?: RawUser;
+  comment_like_count?: number;
+  child_comment_count?: number;
+  has_liked_comment?: boolean;
+};
+
+function toComment(c: RawComment): Comment {
+  const u = toUser(c.user ?? c.from ?? {});
+  const t = c.created_at_utc ?? c.created_at ?? c.created_time ?? Date.now() / 1000;
+  return {
+    pk: String(c.pk ?? c.id ?? ""),
+    text: c.text ?? "",
+    at: t * 1000,
+    username: u.username,
+    pic: u.pic,
+    likes: c.comment_like_count ?? 0,
+    replies: c.child_comment_count ?? 0,
+    liked: Boolean(c.has_liked_comment),
+  };
+}
+
+// Comentários do post, dos mais relevantes para baixo como no app (o
+// Instagram não deixa ordenar por data nesta rota). `cursor` = próxima página.
+export async function comments(jar: Jar, mediaId: string, cursor?: string): Promise<{ comments: Comment[]; next?: string }> {
+  const q = new URLSearchParams({ can_support_threading: "true", permalink_enabled: "false" });
+  if (cursor) q.set("min_id", cursor);
+  const r = await igGet<{ comments?: RawComment[]; next_min_id?: string | null; has_more_headload_comments?: boolean }>(
+    jar,
+    `/api/v1/media/${mediaPath(mediaId)}/comments/?${q}`,
+  );
+  return { comments: (r.comments ?? []).map(toComment).filter((c) => c.pk), ...(r.next_min_id ? { next: String(r.next_min_id) } : {}) };
+}
+
+export async function replies(jar: Jar, mediaId: string, commentPk: string): Promise<Comment[]> {
+  if (!/^\d+$/.test(commentPk)) throw new IgError("Comentário inválido.", "other");
+  const r = await igGet<{ child_comments?: RawComment[] }>(jar, `/api/v1/media/${mediaPath(mediaId)}/comments/${commentPk}/child_comments/?max_id=`);
+  return (r.child_comments ?? []).map(toComment).filter((c) => c.pk);
+}
+
+export async function addComment(jar: Jar, mediaId: string, text: string, replyTo?: string, code?: string): Promise<Comment> {
+  const form: Record<string, string> = { comment_text: text };
+  if (replyTo && /^\d+$/.test(replyTo)) form.replied_to_comment_id = replyTo;
+  const r = await igAct<RawComment & { status?: string }>(jar, `/api/v1/web/comments/${mediaPath(mediaId)}/add/`, form, code);
+  return toComment(r);
+}
+
+export async function likeComment(jar: Jar, commentPk: string, on: boolean): Promise<void> {
+  if (!/^\d+$/.test(commentPk)) throw new IgError("Comentário inválido.", "other");
+  await igAct(jar, `/api/v1/web/comments/${on ? "like" : "unlike"}/${commentPk}/`, {});
 }

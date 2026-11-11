@@ -15,7 +15,9 @@ export type FeedPost = {
   location?: { pk: string; name: string };
   likes?: number;
   comments?: number;
+  liked?: boolean;
 };
+export type FeedComment = { pk: string; text: string; at: number; username: string; pic: string; likes: number; replies: number; liked: boolean };
 export type FeedUser = { pk: string; username: string; fullName: string; pic: string; isPrivate: boolean; isVerified: boolean };
 export type FeedProfile = FeedUser & {
   bio: string;
@@ -56,3 +58,18 @@ export function postAge(ms: number, now = Date.now()): string {
 
 export const count = (n: number) =>
   n >= 1e6 ? `${(n / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi` : n >= 1e4 ? `${(n / 1e3).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil` : n.toLocaleString("pt-BR");
+
+// Chamada ao /api/feed que devolve { ok, data } ou { ok: false, error }.
+export async function feedApi<T>(init?: { body: object } | { query: string }): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+  try {
+    const res =
+      init && "body" in init
+        ? await fetch("/api/feed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(init.body) })
+        : await fetch(`/api/feed?${init?.query ?? ""}`);
+    const r = (await res.json()) as { ok?: boolean; data?: T; error?: string };
+    if (r.ok) return { ok: true, data: r.data as T };
+    return { ok: false, error: r.error ?? "Não deu certo." };
+  } catch {
+    return { ok: false, error: "Sem conexão." };
+  }
+}

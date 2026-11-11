@@ -300,6 +300,7 @@ export default defineSchema({
     location: v.optional(v.object({ pk: v.string(), name: v.string() })),
     likes: v.optional(v.number()),
     comments: v.optional(v.number()),
+    liked: v.optional(v.boolean()), // ele curtiu
     fetchedAt: v.number(),
   })
     .index("by_mediaId", ["mediaId"])

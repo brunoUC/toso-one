@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
-import { count, igLink, media, postAge, type FeedPost } from "@/lib/feed";
+import { count, feedApi, igLink, media, postAge, type FeedPost } from "@/lib/feed";
+import { Comments } from "./Comments";
 
 // Um post: carrossel com rolagem lateral, vídeo só toca quando ele toca,
-// legenda curta com "mais". Sem curtir/comentar: é só para ver.
+// legenda curta com "mais", curtir (botão ou dois toques na foto) e
+// comentários.
 
 function Slide({ item, active }: { item: FeedPost["items"][number]; active: boolean }) {
   const [play, setPlay] = useState(false);
@@ -34,6 +36,37 @@ export function Avatar({ src, size = 34 }: { src: string; size?: number }) {
 export function PostCard({ post }: { post: FeedPost }) {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
+  const [liked, setLiked] = useState(Boolean(post.liked));
+  const [likes, setLikes] = useState(post.likes);
+  const [comments, setComments] = useState(post.comments);
+  const [showComments, setShowComments] = useState(false);
+  const [burst, setBurst] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const lastTap = useRef(0);
+
+  async function setLike(on: boolean) {
+    if (on === liked) return;
+    setLiked(on);
+    setLikes((n) => (n === undefined ? n : Math.max(0, n + (on ? 1 : -1))));
+    setError(null);
+    const r = await feedApi({ body: { action: "like", mediaId: post.mediaId, code: post.code, on } });
+    if (!r.ok) {
+      setLiked(!on);
+      setLikes((n) => (n === undefined ? n : Math.max(0, n + (on ? -1 : 1))));
+      setError(r.error);
+    }
+  }
+
+  // Dois toques na foto curtem (nunca descurtem), como no app.
+  function onTap(e: React.PointerEvent) {
+    if ((e.target as HTMLElement).closest("button, video")) return;
+    const now = Date.now();
+    if (now - lastTap.current < 320) {
+      setBurst((b) => b + 1);
+      void setLike(true);
+      lastTap.current = 0;
+    } else lastTap.current = now;
+  }
   const first = post.items[0];
   // Mesma proporção para o carrossel todo, entre 4:5 e 1,91:1, como no app.
   const ratio = first ? Math.min(1.91, Math.max(0.8, first.w / Math.max(1, first.h))) : 1;
@@ -54,7 +87,7 @@ export function PostCard({ post }: { post: FeedPost }) {
         </time>
       </header>
 
-      <div className="ig-media" style={{ aspectRatio: String(ratio) }}>
+      <div className="ig-media" style={{ aspectRatio: String(ratio) }} onPointerUp={onTap}>
         <div
           className="ig-track"
           onScroll={(e) => {
@@ -81,20 +114,23 @@ export function PostCard({ post }: { post: FeedPost }) {
           </>
         )}
         {post.kind === "reel" && <span className="ig-kind">reel</span>}
+        {burst > 0 && (
+          <span key={burst} className="ig-burst" aria-hidden="true">
+            <Icon name="heart" size={84} />
+          </span>
+        )}
       </div>
 
       <div className="ig-post-body">
         <div className="ig-stats">
-          {post.likes !== undefined && (
-            <span>
-              <Icon name="heart" size={14} /> {count(post.likes)}
-            </span>
-          )}
-          {post.comments !== undefined && (
-            <span>
-              <Icon name="comment" size={14} /> {count(post.comments)}
-            </span>
-          )}
+          <button type="button" className={`ig-act${liked ? " liked" : ""}`} onClick={() => void setLike(!liked)} aria-pressed={liked} aria-label={liked ? "Descurtir" : "Curtir"}>
+            <Icon name="heart" size={20} />
+            {likes !== undefined && <span>{count(likes)}</span>}
+          </button>
+          <button type="button" className={`ig-act${showComments ? " open" : ""}`} onClick={() => setShowComments((v) => !v)} aria-expanded={showComments} aria-label="Comentários">
+            <Icon name="comment" size={20} />
+            {comments !== undefined && <span>{count(comments)}</span>}
+          </button>
           {post.location && (
             <Link href={`/feed/local/${post.location.pk}`} className="ig-place">
               <Icon name="pin" size={14} /> {post.location.name}
@@ -117,6 +153,13 @@ export function PostCard({ post }: { post: FeedPost }) {
             mais
           </button>
         )}
+        {error && <p className="form-error">{error}</p>}
+        {!showComments && (comments ?? 0) > 0 && (
+          <button type="button" className="ig-cmt-more" onClick={() => setShowComments(true)}>
+            ver {comments === 1 ? "o comentário" : `os ${count(comments!)} comentários`}
+          </button>
+        )}
+        {showComments && <Comments mediaId={post.mediaId} code={post.code} onPosted={() => setComments((n) => (n ?? 0) + 1)} />}
       </div>
     </article>
   );

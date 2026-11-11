@@ -6,7 +6,7 @@ Hub pessoal de ferramentas. Hoje tem três apps:
 |---|---|---|
 | **Voos** | aberto (editor privado) | Tarifas do [Flight Tracker](https://github.com/brunoUC/Flight_Tracker), com datas, link de compra e editor de rotas |
 | **Finanças** | privado | Patrimônio, extrato de todos os bancos, gastos por categoria, metas e investimentos, via Open Finance |
-| **Feed** | privado | Instagram só de quem você segue, em ordem cronológica, com busca. Sem Reels, Stories ou sugeridos |
+| **Feed** | privado | Instagram só de quem você segue, em ordem cronológica, com busca, curtir e comentar. Sem Reels, Stories ou sugeridos |
 
 Next.js 16 + Convex. Login com **Face ID / Touch ID (passkey)** e senha de reserva.
 
@@ -201,7 +201,8 @@ Conectar outro banco: conecte no Meu Pluggy e rode
 
 Um Instagram reduzido: o feed de quem você segue, do mais novo para o mais
 antigo, e a busca (perfis, lugares, hashtags). Não tem Reels, Stories,
-Explorar, anúncios nem posts sugeridos, e não curte, comenta ou segue.
+Explorar, anúncios nem posts sugeridos. Curtir e comentar só acontecem
+quando você toca no botão; o toso one nunca segue ninguém nem age sozinho.
 
 O Instagram não tem API oficial para o feed de uma conta pessoal, então o
 toso one usa a API web (a mesma do instagram.com) com a sua sessão e
@@ -228,6 +229,11 @@ só entra post de quem está na sua lista, ordenado pela data.
   domínios do CDN do Instagram), porque o CDN deles não deixa embutir em
   outro site. Os links vencem em alguns dias; a próxima leitura do perfil
   traz links novos.
+- **Curtir e comentar**: coração (ou dois toques na foto) e o balão de
+  comentários em qualquer post, do feed, de um perfil, lugar ou hashtag.
+  Os comentários abrem embaixo do post, com curtir, responder e "ver
+  respostas". Vão direto ao Instagram com a sua conta, e o post guardado
+  no feed já fica com o coração cheio e a contagem nova.
 - **Busca** (`/feed/buscar`), **perfil** (`/feed/u/<usuário>`), **lugar**
   (`/feed/local/<id>`) e **hashtag** (`/feed/tag/<nome>`) perguntam ao
   Instagram na hora.
