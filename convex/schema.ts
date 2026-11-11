@@ -294,7 +294,10 @@ export default defineSchema({
     createdAt: v.number(),
   }),
 
-  // ── Feed (Instagram só de quem ele segue, em ordem cronológica) ──────────
+  // ── Feed antigo (legado) ──────────────────────────────────────────────────
+  // O Feed agora é o próprio instagram.com com o ajuste em
+  // public/instagram-limpo.user.js. Estas tabelas ficam só até a sessão
+  // antiga ser apagada (botão na página /feed); depois podem sair.
 
   // A conta conectada (uma linha só). `jar` = cookies da sessão, cifrados.
   igAccount: defineTable({
@@ -311,7 +314,7 @@ export default defineSchema({
     pendingIdentifier: v.optional(v.string()),
     pendingUsername: v.optional(v.string()),
     pendingMethod: v.optional(v.string()),
-    // Andamento da leitura (instagram/sync.ts).
+    // Andamento da leitura do Feed antigo.
     followingSyncedAt: v.optional(v.number()),
     lastTickAt: v.optional(v.number()),
     runningUntil: v.optional(v.number()),
