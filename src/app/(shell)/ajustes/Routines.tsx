@@ -70,7 +70,7 @@ function Form({ initial, onDone }: { initial: Draft; onDone: () => void }) {
         <button className="btn btn-ghost btn-sm" type="button" onClick={onDone}>
           Cancelar
         </button>
-        <button className="btn btn-sm" type="submit" disabled={busy}>
+        <button className="btn btn-primary btn-sm" type="submit" disabled={busy}>
           {busy ? "Salvando…" : "Salvar"}
         </button>
       </div>
@@ -126,7 +126,7 @@ export function RoutinesEditor({ routines }: { routines: Routine[] }) {
         <Form initial={editing} onDone={() => setEditing(null)} />
       ) : (
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-          <button className="btn btn-sm" type="button" onClick={() => setEditing({ ...EMPTY })}>
+          <button className="btn btn-primary btn-sm" type="button" onClick={() => setEditing({ ...EMPTY })}>
             Nova rotina
           </button>
           {!routines.some((r) => /kobe/i.test(r.title)) && (

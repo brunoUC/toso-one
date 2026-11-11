@@ -108,7 +108,7 @@ export function AddBox({ initialType }: { initialType: "livro" | "tela" }) {
                 </span>
               ) : (
                 <span className="result-actions">
-                  <button className="btn btn-sm" type="button" onClick={() => add(r, "want", r.ref)}>
+                  <button className="btn btn-primary btn-sm" type="button" onClick={() => add(r, "want", r.ref)}>
                     {book ? "Quero ler" : "Quero ver"}
                   </button>
                   <button className="btn btn-ghost btn-sm" type="button" onClick={() => add(r, "done", r.ref)}>

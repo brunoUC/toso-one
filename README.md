@@ -1,14 +1,15 @@
 # toso one
 
 Hub pessoal de ferramentas. A página inicial tem os apps no alto e, abaixo,
-o feed **Sua semana** (agenda, rotinas, tempo, feriados e contas). Hoje tem
-três apps:
+a seção **Sua semana** (agenda, rotinas, tempo, feriados e contas). Hoje tem
+quatro apps:
 
 | App | Acesso | O que é |
 |---|---|---|
 | **Voos** | aberto (editor privado) | Tarifas do [Flight Tracker](https://github.com/brunoUC/Flight_Tracker), com datas, link de compra e editor de rotas |
 | **Finanças** | privado | Patrimônio, extrato de todos os bancos, gastos por categoria, metas e investimentos, via Open Finance |
 | **Estante** | privado | Quero ler / quero ver (com quem indicou), lidos e vistos, highlights do Kindle e importação do StoryGraph |
+| **Feed** | privado | Instagram só de quem você segue, em ordem cronológica, com busca, curtir e comentar. Sem Reels, Stories ou sugeridos |
 
 Next.js 16 + Convex. Login com **Face ID / Touch ID (passkey)** e senha de reserva.
 
@@ -199,7 +200,7 @@ variáveis de ambiente do Convex).
 Conectar outro banco: conecte no Meu Pluggy e rode
 `npx convex run --prod financas/sync:addItems '{"itemIds":["<id>"]}'`.
 
-## Sua semana (feed da página inicial)
+## Sua semana (página inicial)
 
 `src/lib/semana.ts` junta, para hoje e os próximos seis dias:
 
@@ -241,9 +242,68 @@ Conectar outro banco: conecte no Meu Pluggy e rode
   CSV na aba Lidos. Lido, lendo, quero ler e larguei, com nota, data e
   resenha; capa pelo ISBN. Reimportar não duplica nem desfaz o que foi
   mudado aqui.
-- **Kindle**: `documents/My Clippings.txt` (Kindle pelo cabo) ou o HTML de
+- **Kindle pela Amazon** (`src/lib/kindle-bookmarklet.ts`): a Amazon não
+  tem API de highlights e o login dela não se automatiza do servidor
+  (captcha, código no celular). Em Estante → Highlights fica o favorito
+  "Enviar ao toso one": aberto em `ler.amazon.com.br/notebook` (ou
+  `read.amazon.com/notebook`) com a conta logada, ele lê todos os livros e
+  highlights da página, com paginação, abre `/estante/kindle` e entrega por
+  `postMessage` (só aceito de domínios da Amazon). Nenhuma senha ou cookie
+  da Amazon sai do navegador. Os seletores da página da Amazon podem mudar;
+  se parar, o lugar para ajustar é esse arquivo.
+- **Kindle por arquivo**: `documents/My Clippings.txt` (Kindle pelo cabo,
+  pega também livros que não vieram da Amazon) ou o HTML de
   "Exportar anotações" do app. Notas vão junto do highlight; highlight
   esticado no Kindle atualiza o texto em vez de duplicar.
+## Feed
+
+Um Instagram reduzido: o feed de quem você segue, do mais novo para o mais
+antigo, e a busca (perfis, lugares, hashtags). Não tem Reels, Stories,
+Explorar, anúncios nem posts sugeridos. Curtir e comentar só acontecem
+quando você toca no botão; o toso one nunca segue ninguém nem age sozinho.
+
+O Instagram não tem API oficial para o feed de uma conta pessoal, então o
+toso one usa a API web (a mesma do instagram.com) com a sua sessão e
+**monta o próprio feed**: lê a lista de quem você segue e, aos poucos, os
+posts recentes de cada perfil. Por isso não existe algoritmo nem sugerido:
+só entra post de quem está na sua lista, ordenado pela data.
+
+- **Conectar** (`/feed`): usuário e senha (e o código de dois fatores, se
+  tiver). A senha vai direto ao Instagram e não é guardada; fica só a sessão
+  (cookies), **cifrada** (AES-GCM, chave derivada do `TOSO_SERVER_SECRET`)
+  na tabela `igAccount` do Convex. Se o Instagram barrar a entrada vinda de
+  servidor, o plano B é colar o cookie `sessionid` de um navegador logado.
+- **Leitura** (`convex/instagram/sync.ts`, cron a cada 10 min): relê a
+  lista de quem você segue uma vez por dia e lê ~12 perfis por rodada (20
+  enquanto ainda tem perfil nunca lido), com 2,5 a 6 s entre pedidos, e
+  dorme das 02h às 07h. Quem posta mais é lido mais vezes (de 2 h em 2 h
+  para quem postou nos últimos 3 dias, até 3 dias para quem está parado).
+  Se o Instagram pedir pausa, espera 1 h, 2 h, 4 h, até 8 h. O botão
+  "Atualizar" roda uma rodada na hora.
+- **Guarda** só os posts dos últimos 60 dias (`igPosts`). Reels de quem
+  você segue ficam guardados mas escondidos; "Com reels de quem sigo"
+  mostra.
+- **Fotos e vídeos** passam por `/api/feed/midia` (só logado, só os
+  domínios do CDN do Instagram), porque o CDN deles não deixa embutir em
+  outro site. Os links vencem em alguns dias; a próxima leitura do perfil
+  traz links novos.
+- **Curtir e comentar**: coração (ou dois toques na foto) e o balão de
+  comentários em qualquer post, do feed, de um perfil, lugar ou hashtag.
+  Os comentários abrem embaixo do post, com curtir, responder e "ver
+  respostas". Vão direto ao Instagram com a sua conta, e o post guardado
+  no feed já fica com o coração cheio e a contagem nova.
+- **Busca** (`/feed/buscar`), **perfil** (`/feed/u/<usuário>`), **lugar**
+  (`/feed/local/<id>`) e **hashtag** (`/feed/tag/<nome>`) perguntam ao
+  Instagram na hora.
+
+**Riscos.** Usar a conta fora do app oficial vai contra os termos do
+Instagram. O ritmo lento existe para não parecer robô, mas o Instagram
+pode pedir para confirmar a entrada ("Fui eu") ou derrubar a sessão; aí o
+Feed mostra o aviso e pede para conectar de novo. Desconectar (no pé da
+página) apaga a sessão e tudo o que foi guardado.
+
+Os caminhos da API web do Instagram mudam sem aviso. Se uma parte parar,
+o lugar para ajustar é `convex/instagram/client.ts`.
 
 ## Adicionar um app
 

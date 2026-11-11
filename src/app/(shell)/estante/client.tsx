@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { STATUSES, statusLabel, type Kind, type Status } from "@/lib/estante-labels";
@@ -149,5 +149,59 @@ export function Highlights({ list }: { list: HighlightView[] }) {
       ))}
       {!groups.length && <p className="feed-empty">Nada com “{q}”.</p>}
     </>
+  );
+}
+
+// O favorito "Enviar ao toso one". O React bloqueia "javascript:" no href,
+// então o endereço entra direto no elemento depois de montar.
+export function AmazonSync({ code }: { code: string }) {
+  const ref = useRef<HTMLAnchorElement>(null);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    ref.current?.setAttribute("href", code);
+  }, [code]);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      prompt("Copie o código do favorito:", code);
+    }
+  }
+  return (
+    <section className="amz-sync">
+      <div className="amz-head">
+        <div>
+          <p className="eyebrow" style={{ margin: 0 }}>
+            Sincronizar com a Amazon
+          </p>
+          <p className="amz-sub">
+            Todos os highlights de todos os livros, direto da página de anotações do Kindle, com um toque. Rode de novo quando quiser atualizar: não duplica.
+          </p>
+        </div>
+        <span className="amz-actions">
+          <a ref={ref} className="btn btn-primary btn-sm amz-bm" onClick={(e) => e.preventDefault()} draggable title="Arraste para a barra de favoritos">
+            <Icon name="book" size={14} /> Enviar ao toso one
+          </a>
+          <button className="btn btn-ghost btn-sm" type="button" onClick={copy}>
+            {copied ? "Copiado" : "Copiar código"}
+          </button>
+        </span>
+      </div>
+      <ol className="amz-steps">
+        <li>
+          <b>Uma vez, criar o favorito.</b> No Mac: arraste o botão “Enviar ao toso one” para a barra de favoritos. No iPhone: toque em “Copiar código”, adicione
+          qualquer página aos favoritos, edite esse favorito, troque o nome por “Enviar ao toso one” e cole o código no endereço.
+        </li>
+        <li>
+          <b>Para atualizar.</b> Abra{" "}
+          <a href="https://ler.amazon.com.br/notebook" target="_blank" rel="noreferrer">
+            ler.amazon.com.br/notebook
+          </a>{" "}
+          (ou read.amazon.com/notebook, se a conta for americana), entre na conta e toque no favorito. Ele abre uma aba do toso one e grava tudo.
+        </li>
+      </ol>
+    </section>
   );
 }

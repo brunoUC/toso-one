@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
-import { requireSession } from "@/lib/auth";
+import { relyingParty, requireSession } from "@/lib/auth";
 import { convexConfigured } from "@/lib/convex";
 import { getHighlights, getShelf, highlightOfTheDay, type ShelfItem } from "@/lib/estante";
 import { KIND_LABEL, TABS, statusLabel, type TabId } from "@/lib/estante-labels";
+import { kindleBookmarklet } from "@/lib/kindle-bookmarklet";
 import { todayInSp } from "@/lib/semana";
 import { AddBox } from "./AddBox";
-import { Highlights, Importer, ItemActions } from "./client";
+import { AmazonSync, Highlights, Importer, ItemActions } from "./client";
 
 export const metadata: Metadata = { title: "Estante" };
 
@@ -152,6 +153,10 @@ export default async function EstantePage({ searchParams }: { searchParams: Prom
         <>
           <Group title={statusLabel("book", "doing")} items={books.filter((i) => i.status === "doing")} />
           <Group title="Quero ler" items={books.filter((i) => i.status === "want")} empty="Busque um livro acima e toque em “Quero ler”." />
+          <div className="import-row">
+            <Importer mode="storygraph" />
+            <span className="muted small">Traz do StoryGraph o que você quer ler, está lendo e já leu.</span>
+          </div>
         </>
       )}
       {tab === "assistir" && (
@@ -178,10 +183,11 @@ export default async function EstantePage({ searchParams }: { searchParams: Prom
       )}
       {tab === "destaques" && (
         <>
+          <AmazonSync code={kindleBookmarklet((await relyingParty()).origin)} />
           <div className="import-row">
             <Importer mode="kindle" />
             <span className="muted small">
-              Kindle pelo cabo: <code>documents/My Clippings.txt</code>. App do Kindle: no livro, Anotações → Exportar → HTML. Reimportar não duplica.
+              Ou por arquivo: <code>documents/My Clippings.txt</code> do Kindle pelo cabo (pega também livros que não são da Amazon), ou o HTML de Anotações → Exportar do app.
             </span>
           </div>
           {hod && (

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { api, convex, convexConfigured, serverSecret } from "@/lib/convex";
-import { parseKindle, storygraphItems } from "@/lib/estante-import";
+import { amazonHighlights, parseKindle, storygraphItems, type AmazonRow } from "@/lib/estante-import";
 
 // Edições da Estante: adicionar, mudar a situação, apagar e importar
 // (StoryGraph e Kindle). Confere a sessão e repassa ao Convex.
@@ -23,7 +23,8 @@ type Body =
   | { action: "remove"; id: string }
   | { action: "removeHighlight"; id: string }
   | { action: "storygraph"; csv: string }
-  | { action: "kindle"; content: string };
+  | { action: "kindle"; content: string }
+  | { action: "amazon"; rows: AmazonRow[] };
 
 const str = (v: unknown, max = 200) => (typeof v === "string" ? v.slice(0, max) : undefined);
 // O Convex não aceita campos undefined: some com eles antes de mandar.
@@ -80,8 +81,9 @@ export async function POST(request: Request) {
         }
         return NextResponse.json({ total: items.length, added, updated });
       }
-      case "kindle": {
-        const rows = parseKindle(String(b.content ?? ""));
+      case "kindle":
+      case "amazon": {
+        const rows = b.action === "kindle" ? parseKindle(String(b.content ?? "")) : amazonHighlights(Array.isArray(b.rows) ? b.rows.slice(0, 20000) : []);
         if (!rows.length) return NextResponse.json({ error: "Nenhum highlight encontrado no arquivo." }, { status: 400 });
         let added = 0;
         let updated = 0;

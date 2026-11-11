@@ -230,3 +230,22 @@ export function parseKindle(content: string): ImportHighlight[] {
   if (content.includes("==========")) return parseClippings(content);
   throw new Error("Não reconheci o arquivo. Mande o My Clippings.txt do Kindle ou o HTML de \"Exportar anotações\" do app.");
 }
+
+// Highlights que o favorito leu da página de anotações da Amazon. A posição
+// é o início, como no My Clippings, então os dois caminhos não duplicam.
+export type AmazonRow = { book: string; author?: string; text: string; note?: string; location?: string; page?: string };
+
+export function amazonHighlights(rows: AmazonRow[]): ImportHighlight[] {
+  const byHash = new Map<string, ImportHighlight>();
+  for (const r of rows) {
+    const book = String(r.book ?? "").trim().slice(0, 300);
+    const text = String(r.text ?? "").trim();
+    if (!book || !text) continue;
+    const str = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined);
+    const location = str(r.location, 40);
+    const page = str(r.page, 20);
+    const h: ImportHighlight = { hash: hashOf(book, location ?? (page ? `p${page}` : undefined), text), book, author: str(r.author, 200), text: text.slice(0, 4000), note: str(r.note, 2000), location, page };
+    byHash.set(h.hash, h);
+  }
+  return [...byHash.values()];
+}
