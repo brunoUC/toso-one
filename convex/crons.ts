@@ -14,8 +14,5 @@ crons.cron("financas-cartoes", "23 11 * * *", makeFunctionReference<"action">("f
 // A análise da semana na XP não roda aqui: é uma tarefa agendada do Claude
 // Code (sábado de manhã) que fala com /api/agente/semana.
 
-// Feed: a cada 10 minutos lê os posts de algumas pessoas que ele segue
-// (instagram/sync.ts escolhe quem e dorme de madrugada).
-crons.interval("instagram-feed", { minutes: 10 }, makeFunctionReference<"action">("instagram/sync:tick"), {});
 
 export default crons;

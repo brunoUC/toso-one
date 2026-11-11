@@ -1,115 +1,103 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ConnectForm } from "@/components/feed/ConnectForm";
-import { DisconnectButton, RefreshButton } from "@/components/feed/FeedControls";
-import { FeedList } from "@/components/feed/FeedList";
-import { Avatar } from "@/components/feed/PostCard";
 import { Icon } from "@/components/Icon";
 import { requireSession } from "@/lib/auth";
-import { convexConfigured } from "@/lib/convex";
-import { postAge } from "@/lib/feed";
-import { CONVEX_DOWN, feedPage, feedStatus, type FeedStatus } from "@/lib/instagram";
-import { FeedTop } from "./FeedTop";
+import { api, convex, convexConfigured, serverSecret } from "@/lib/convex";
+import { ForgetOld } from "./ForgetOld";
 
 export const metadata: Metadata = { title: "Feed" };
 export const dynamic = "force-dynamic";
 
-function Progress({ st }: { st: FeedStatus }) {
-  const filling = st.following > 0 && st.read < st.following;
-  return (
-    <p className="ig-status">
-      {st.backoffUntil ? (
-        <span className="warn">O Instagram pediu uma pausa; volta a ler às {new Date(st.backoffUntil).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}.</span>
-      ) : filling ? (
-        <span>
-          Montando seu feed: {st.read} de {st.following} perfis lidos. Ele lê aos poucos para o Instagram não estranhar.
-        </span>
-      ) : st.following === 0 ? (
-        <span>Lendo a lista de quem você segue…</span>
-      ) : (
-        <span>
-          {st.following} perfis seguidos{st.lastTickAt ? ` · última leitura há ${postAge(st.lastTickAt)}` : ""}
-        </span>
-      )}
-    </p>
-  );
+// O Feed é o próprio instagram.com, aberto no Safari, com o ajuste
+// public/instagram-limpo.user.js (app "Userscripts"): a página inicial vai
+// direto para "Seguindo" e somem Reels, Stories, Explorar, sugestões e
+// anúncios. Login, busca, curtir e comentar são os do Instagram.
+
+const FOLLOWING = "https://www.instagram.com/?variant=following";
+const SEARCH = "https://www.instagram.com/explore/search/";
+const USERSCRIPTS = "https://apps.apple.com/app/userscripts/id1463298887";
+const SCRIPT = "/instagram-limpo.user.js";
+
+async function leftover(): Promise<{ session: boolean; username: string | null; posts: boolean } | null> {
+  if (!convexConfigured()) return null;
+  try {
+    return await convex().query(api.instagram.data.leftover, { secret: serverSecret() });
+  } catch {
+    return null;
+  }
 }
 
-export default async function FeedPage({ searchParams }: { searchParams: Promise<{ reels?: string }> }) {
+export default async function FeedPage() {
   await requireSession("/feed");
-  const reels = (await searchParams).reels === "1";
-
-  if (!convexConfigured()) {
-    return (
-      <main className="page ig-page">
-        <FeedTop />
-        <p className="form-error">Convex não configurado: o Feed precisa dele para guardar a sessão e os posts.</p>
-      </main>
-    );
-  }
-
-  let st: FeedStatus | null;
-  try {
-    st = await feedStatus();
-  } catch (err) {
-    console.error("Feed/Convex:", (err as Error).message);
-    return (
-      <main className="page ig-page">
-        <FeedTop />
-        <p className="form-error">{CONVEX_DOWN}</p>
-      </main>
-    );
-  }
-
-  if (!st || st.status !== "ok") {
-    const why =
-      st?.status === "expired" || st?.status === "checkpoint"
-        ? st.error ?? "A sessão do Instagram caiu. Conecte de novo."
-        : "Conecte sua conta para ver os posts de quem você segue, do mais novo para o mais antigo. Sem Reels, sem Stories, sem sugeridos.";
-    return (
-      <main className="page ig-page">
-        <FeedTop />
-        <section className="card ig-card">
-          <h2>Conectar o Instagram</h2>
-          <p className="card-sub">{why}</p>
-          <ConnectForm pendingMethod={st?.status === "pending2fa" ? st.pendingMethod : null} />
-        </section>
-      </main>
-    );
-  }
-
-  const { posts, next } = await feedPage(undefined, reels).catch(() => ({ posts: [], next: null }));
+  const old = await leftover();
 
   return (
-    <main className="page ig-page">
-      <FeedTop />
-      <div className="ig-bar">
-        <Progress st={st} />
-        <RefreshButton running={st.running} />
-      </div>
-      <div className="ig-filters">
-        <Link href="/feed" className={reels ? undefined : "on"}>
-          Sem reels
-        </Link>
-        <Link href="/feed?reels=1" className={reels ? "on" : undefined}>
-          Com reels de quem sigo
-        </Link>
+    <main className="page feed-page">
+      <p className="eyebrow">Instagram, só o que importa</p>
+      <h1 className="feed-title">Feed</h1>
+      <p className="feed-lead">
+        O Instagram de verdade, no Safari, só com quem você segue, do mais novo para o mais antigo, e a busca. Sem Reels, Stories, Explorar, sugestões e
+        anúncios.
+      </p>
+
+      <div className="feed-open">
+        <a className="btn btn-primary" href={FOLLOWING} target="_blank" rel="noreferrer noopener">
+          <Icon name="camera" size={18} /> Abrir o feed
+        </a>
+        <a className="btn btn-ghost" href={SEARCH} target="_blank" rel="noreferrer noopener">
+          <Icon name="search" size={16} /> Buscar
+        </a>
       </div>
 
-      {posts.length === 0 ? (
-        <p className="empty">Nenhum post ainda. Os primeiros chegam em alguns minutos: o feed vai sendo montado conforme os perfis são lidos.</p>
-      ) : (
-        <FeedList initial={posts} next={next} reels={reels} />
+      <section className="card feed-card">
+        <h2>Primeira vez no iPhone</h2>
+        <p className="card-sub">Uma vez só, uns 3 minutos. Depois é só abrir o feed.</p>
+        <ol className="feed-steps">
+          <li>
+            Instale o app <a href={USERSCRIPTS} target="_blank" rel="noreferrer noopener"><b>Userscripts</b></a> (grátis, de código aberto) e abra uma vez: ele
+            pede para escolher uma pasta. Escolha qualquer uma (pode ser “No iPhone”).
+          </li>
+          <li>
+            Em <b>Ajustes → Apps → Safari → Extensões → Userscripts</b>, ative e deixe <b>Permitir</b> em instagram.com (ou em todos os sites).
+          </li>
+          <li>
+            No <b>Safari</b>, abra{" "}
+            <a href={SCRIPT} target="_blank" rel="noreferrer noopener">
+              <b>o ajuste do toso one</b>
+            </a>
+            , toque no botão <b>aA</b> (ou no ícone de quebra-cabeça) da barra de endereço → <b>Userscripts</b> → <b>Install</b>.
+          </li>
+          <li>Abra o feed acima e entre com a sua conta do Instagram, como faria no instagram.com.</li>
+        </ol>
+        <p className="form-note">
+          O ajuste roda só no Safari, não nos apps da Tela de Início. Para ter um ícone que abre direto no feed: no app <b>Atalhos</b>, crie um atalho com
+          “Abrir URLs” e o endereço <code>instagram.com/?variant=following</code>, depois <b>Adicionar à Tela de Início</b>. No Mac, o mesmo app Userscripts
+          (ou o Tampermonkey) instala o ajuste pelo mesmo link.
+        </p>
+      </section>
+
+      <section className="card feed-card">
+        <h2>O que o ajuste faz</h2>
+        <ul className="feed-list">
+          <li>A página inicial abre sempre em <b>Seguindo</b>: só quem você segue, por data.</li>
+          <li>Esconde a aba e as páginas de Reels, a fileira de Stories e os destaques.</li>
+          <li>Explorar vira a Busca (perfis, lugares, restaurantes, hashtags).</li>
+          <li>Esconde sugestões de perfis e de posts, anúncios e o Threads.</li>
+          <li>Curtir, comentar, perfis e mensagens continuam como no Instagram.</li>
+        </ul>
+        <p className="form-note">Se algo que devia sumir aparecer, me mande um print: o Instagram muda a página com frequência e o ajuste se atualiza sozinho.</p>
+      </section>
+
+      {old && (old.session || old.posts) && (
+        <section className="card feed-card feed-old">
+          <div className="grow">
+            <h2>Sessão do Feed antigo</h2>
+            <p className="card-sub" style={{ margin: 0 }}>
+              O Feed antigo guardou a sessão {old.username ? `de @${old.username} ` : ""}(cifrada) e os posts que leu. Ele não usa mais nada disso.
+            </p>
+          </div>
+          <ForgetOld />
+        </section>
       )}
-
-      <footer className="ig-account">
-        {st.pic && <Avatar src={st.pic} size={28} />}
-        <span className="grow">
-          Conectado como <b>@{st.username}</b>
-        </span>
-        <Icon name="camera" size={14} />
-        <DisconnectButton />
-      </footer>
     </main>
   );
 }

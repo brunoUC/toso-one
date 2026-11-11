@@ -294,7 +294,10 @@ export default defineSchema({
     createdAt: v.number(),
   }),
 
-  // ── Feed (Instagram só de quem ele segue, em ordem cronológica) ──────────
+  // ── Feed antigo (legado) ──────────────────────────────────────────────────
+  // O Feed agora é o próprio instagram.com com o ajuste em
+  // public/instagram-limpo.user.js. Estas tabelas ficam só até a sessão
+  // antiga ser apagada (botão na página /feed); depois podem sair.
 
   // A conta conectada (uma linha só). `jar` = cookies da sessão, cifrados.
   igAccount: defineTable({

@@ -9,7 +9,7 @@ quatro apps:
 | **Voos** | aberto (editor privado) | Tarifas do [Flight Tracker](https://github.com/brunoUC/Flight_Tracker), com datas, link de compra e editor de rotas |
 | **Finanças** | privado | Patrimônio, extrato de todos os bancos, gastos por categoria, metas e investimentos, via Open Finance |
 | **Estante** | privado | Quero ler / quero ver (com quem indicou), lidos e vistos, highlights do Kindle e importação do StoryGraph |
-| **Feed** | privado | Instagram só de quem você segue, em ordem cronológica, com busca, curtir e comentar. Sem Reels, Stories ou sugeridos |
+| **Feed** | privado | O Instagram no Safari, só com quem você segue (por data) e a busca. Sem Reels, Stories, Explorar e sugestões |
 
 Next.js 16 + Convex. Login com **Face ID / Touch ID (passkey)** e senha de reserva.
 
@@ -266,53 +266,32 @@ Conectar outro banco: conecte no Meu Pluggy e rode
   esticado no Kindle atualiza o texto em vez de duplicar.
 ## Feed
 
-Um Instagram reduzido: o feed de quem você segue, do mais novo para o mais
-antigo, e a busca (perfis, lugares, hashtags). Não tem Reels, Stories,
-Explorar, anúncios nem posts sugeridos. Curtir e comentar só acontecem
-quando você toca no botão; o toso one nunca segue ninguém nem age sozinho.
+O próprio Instagram, no Safari, sem o que não importa. O login, o feed, a
+busca, curtir e comentar são os do instagram.com; o toso one só entrega o
+ajuste `public/instagram-limpo.user.js` (servido em
+`/instagram-limpo.user.js`), instalado uma vez pelo app
+[Userscripts](https://apps.apple.com/app/userscripts/id1463298887) no
+iPhone ou no Mac. A página `/feed` tem o passo a passo e os atalhos.
 
-O Instagram não tem API oficial para o feed de uma conta pessoal, então o
-toso one usa a API web (a mesma do instagram.com) com a sua sessão e
-**monta o próprio feed**: lê a lista de quem você segue e, aos poucos, os
-posts recentes de cada perfil. Por isso não existe algoritmo nem sugerido:
-só entra post de quem está na sua lista, ordenado pela data.
+O ajuste:
+- manda a página inicial para `/?variant=following` (o feed "Seguindo" do
+  Instagram: só quem você segue, por data) e `/reels/` e `/stories/` para lá;
+- troca Explorar pela Busca (`/explore/search/`);
+- esconde a aba de Reels, a fileira de Stories e os destaques, sugestões
+  de perfis e de posts, anúncios, o Threads e o que vier depois de "Você
+  está em dia".
 
-- **Conectar** (`/feed`): usuário e senha (e o código de dois fatores, se
-  tiver). A senha vai direto ao Instagram e não é guardada; fica só a sessão
-  (cookies), **cifrada** (AES-GCM, chave derivada do `TOSO_SERVER_SECRET`)
-  na tabela `igAccount` do Convex. Se o Instagram barrar a entrada vinda de
-  servidor, o plano B é colar o cookie `sessionid` de um navegador logado.
-- **Leitura** (`convex/instagram/sync.ts`, cron a cada 10 min): relê a
-  lista de quem você segue uma vez por dia e lê ~12 perfis por rodada (20
-  enquanto ainda tem perfil nunca lido), com 2,5 a 6 s entre pedidos, e
-  dorme das 02h às 07h. Quem posta mais é lido mais vezes (de 2 h em 2 h
-  para quem postou nos últimos 3 dias, até 3 dias para quem está parado).
-  Se o Instagram pedir pausa, espera 1 h, 2 h, 4 h, até 8 h. O botão
-  "Atualizar" roda uma rodada na hora.
-- **Guarda** só os posts dos últimos 60 dias (`igPosts`). Reels de quem
-  você segue ficam guardados mas escondidos; "Com reels de quem sigo"
-  mostra.
-- **Fotos e vídeos** passam por `/api/feed/midia` (só logado, só os
-  domínios do CDN do Instagram), porque o CDN deles não deixa embutir em
-  outro site. Os links vencem em alguns dias; a próxima leitura do perfil
-  traz links novos.
-- **Curtir e comentar**: coração (ou dois toques na foto) e o balão de
-  comentários em qualquer post, do feed, de um perfil, lugar ou hashtag.
-  Os comentários abrem embaixo do post, com curtir, responder e "ver
-  respostas". Vão direto ao Instagram com a sua conta, e o post guardado
-  no feed já fica com o coração cheio e a contagem nova.
-- **Busca** (`/feed/buscar`), **perfil** (`/feed/u/<usuário>`), **lugar**
-  (`/feed/local/<id>`) e **hashtag** (`/feed/tag/<nome>`) perguntam ao
-  Instagram na hora.
+As classes do Instagram mudam sempre, então o ajuste se guia por links,
+textos e pela estrutura da página. Quando algo escapar, é ali que se
+ajusta; o `@version` novo faz o Userscripts atualizar sozinho.
 
-**Riscos.** Usar a conta fora do app oficial vai contra os termos do
-Instagram. O ritmo lento existe para não parecer robô, mas o Instagram
-pode pedir para confirmar a entrada ("Fui eu") ou derrubar a sessão; aí o
-Feed mostra o aviso e pede para conectar de novo. Desconectar (no pé da
-página) apaga a sessão e tudo o que foi guardado.
+Extensões do Safari não rodam nos apps da Tela de Início: para um ícone,
+um atalho do app Atalhos ("Abrir URLs") abre o feed no Safari.
 
-Os caminhos da API web do Instagram mudam sem aviso. Se uma parte parar,
-o lugar para ajustar é `convex/instagram/client.ts`.
+O Feed antigo (o servidor lia o Instagram com a sua sessão) foi
+desligado. Se a sessão dele ainda estiver guardada, a página `/feed`
+oferece apagá-la; as tabelas `igAccount`, `igFollowing` e `igPosts`
+saem do schema depois disso.
 
 ## Adicionar um app
 

@@ -49,7 +49,7 @@ export const APPS: AppEntry[] = [
   {
     id: "feed",
     name: "Feed",
-    description: "Instagram só de quem você segue, por data",
+    description: "O Instagram, só com quem você segue e a busca",
     href: "/feed",
     icon: "camera",
     tone: "violet",
