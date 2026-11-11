@@ -8,7 +8,7 @@ import { Icon } from "@/components/Icon";
 import { requireSession } from "@/lib/auth";
 import { convexConfigured } from "@/lib/convex";
 import { postAge } from "@/lib/feed";
-import { feedPage, feedStatus, type FeedStatus } from "@/lib/instagram";
+import { CONVEX_DOWN, feedPage, feedStatus, type FeedStatus } from "@/lib/instagram";
 import { FeedTop } from "./FeedTop";
 
 export const metadata: Metadata = { title: "Feed" };
@@ -48,10 +48,20 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
     );
   }
 
-  const st = await feedStatus();
-  const connected = st?.status === "ok";
+  let st: FeedStatus | null;
+  try {
+    st = await feedStatus();
+  } catch (err) {
+    console.error("Feed/Convex:", (err as Error).message);
+    return (
+      <main className="page ig-page">
+        <FeedTop />
+        <p className="form-error">{CONVEX_DOWN}</p>
+      </main>
+    );
+  }
 
-  if (!connected) {
+  if (!st || st.status !== "ok") {
     const why =
       st?.status === "expired" || st?.status === "checkpoint"
         ? st.error ?? "A sessão do Instagram caiu. Conecte de novo."
@@ -68,7 +78,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
     );
   }
 
-  const { posts, next } = await feedPage(undefined, reels);
+  const { posts, next } = await feedPage(undefined, reels).catch(() => ({ posts: [], next: null }));
 
   return (
     <main className="page ig-page">
