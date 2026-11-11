@@ -202,7 +202,9 @@ const KEYWORDS: [RegExp, string][] = [
   // dinheiro que só muda de lugar
   // XP: conta digital ↔ conta investimento são duas contas correntes dele.
   [/\bTRANSFERENCIA (ENVIADA PARA|RECEBIDA DA) (A )?CONTA (DIGITAL|INVESTIMENTO)\b/, "entre-contas"],
-  [/\bGASTOS CARTAO DE CREDITO\b/, "pagamento-fatura"],
+  // Bradesco debita a fatura na conta como "GASTOS CARTAO DE CREDITO" e,
+  // dias antes, reserva o valor como "PROVISAO GASTO CART CRED" (pendente).
+  [/\b(PROVISAO )?GASTOS? CART(AO)? (DE )?CRED(ITO)?\b/, "pagamento-fatura"],
   [/\b(PAG(AMENTO|TO|T)?\.? ?(DE )?FAT(URA)?|PGTO FAT|PAG(AMENTO)? CARTAO|PAGTO POR DEB|DEB(ITO)? AUTOMATICO FATURA)\b/, "pagamento-fatura"],
   [/\b(APLICACAO|APLIC|APL (CDB|LCI|LCA|FUNDO|TESOURO)|INVEST(IMENTO)? AUTOMATICO|COMPRA (TITULO|TESOURO|CDB))\b/, "investimento-aplicacao"],
   [/\b(RESGATE|RESG|VENC(IMENTO)? (CDB|LCI|LCA|TITULO))\b/, "investimento-resgate"],
