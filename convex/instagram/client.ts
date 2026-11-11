@@ -33,9 +33,9 @@ export function mergeCookies(jar: Jar, res: Response): boolean {
     const eq = pair.indexOf("=");
     if (eq <= 0) continue;
     const name = pair.slice(0, eq).trim();
-    let value = pair.slice(eq + 1).trim();
-    if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
-    const expired = !value || /max-age=0\b/i.test(line) || /expires=Thu, 01[- ]Jan[- ]1970/i.test(line);
+    // O valor volta exatamente como veio (o "rur" vem entre aspas, com barras).
+    const value = pair.slice(eq + 1).trim();
+    const expired = !value || value === '""' || /max-age=0\b/i.test(line) || /expires=Thu, 01[- ]Jan[- ]1970/i.test(line);
     if (expired) {
       if (name in jar && name !== "sessionid") {
         delete jar[name];
@@ -103,21 +103,25 @@ function headers(jar: Jar, extra: Record<string, string> = {}): Record<string, s
   };
 }
 
-type Body = Record<string, unknown> & { message?: string; status?: string; checkpoint_url?: string; spam?: boolean };
+type Body = Record<string, unknown> & { message?: string; status?: string; checkpoint_url?: string; spam?: boolean; require_login?: boolean };
 
-function classify(status: number, body: Body | null): IgError | null {
+// Onde e o que o Instagram respondeu, para o aviso dizer o motivo real.
+const detail = (status: number, path: string, extra = "") => ` (${status} em ${path.split("?")[0].replace(/\/\d{4,}\//g, "/…/")}${extra ? `: ${extra.slice(0, 80)}` : ""})`;
+
+function classify(status: number, body: Body | null, path = ""): IgError | null {
   const msg = String(body?.message ?? "");
+  const where = detail(status, path, msg);
   if (status === 429 || /wait a few minutes|try again later|rate limit/i.test(msg) || body?.spam) {
     return new IgError("O Instagram pediu uma pausa (muitos pedidos). O toso one espera e tenta de novo sozinho.", "rate");
   }
   if (msg === "checkpoint_required" || msg === "challenge_required" || body?.checkpoint_url) {
-    return new IgError("O Instagram quer confirmar que é você. Abra o app do Instagram, toque em “Fui eu” e conecte de novo.", "checkpoint");
+    return new IgError(`O Instagram quer confirmar que é você. Abra o app do Instagram, toque em “Fui eu” e conecte de novo${where}.`, "checkpoint");
   }
-  if (status === 401 || msg === "login_required" || (status === 403 && /login|session/i.test(msg))) {
-    return new IgError("A sessão do Instagram expirou. Conecte de novo.", "login");
+  if (status === 401 || msg === "login_required" || body?.require_login === true || (status === 403 && /login|session/i.test(msg))) {
+    return new IgError(`A sessão do Instagram expirou. Conecte de novo${where}.`, "login");
   }
-  if (status === 404 || /not authorized to view|user not found|no longer available/i.test(msg)) return new IgError("Não encontrado no Instagram.", "notfound");
-  if (status >= 400 || body?.status === "fail") return new IgError(`Instagram respondeu ${status}${msg ? `: ${msg}` : ""}.`, "other");
+  if (status === 404 || /not authorized to view|user not found|no longer available/i.test(msg)) return new IgError(`Não encontrado no Instagram${where}.`, "notfound");
+  if (status >= 400 || body?.status === "fail") return new IgError(`O Instagram recusou o pedido${where}.`, "other");
   return null;
 }
 
@@ -126,25 +130,26 @@ export async function igGet<T>(jar: Jar, path: string): Promise<T> {
   mergeCookies(jar, res);
   if (res.status >= 300 && res.status < 400) {
     const to = res.headers.get("location") ?? "";
-    throw new IgError(
-      /challenge|checkpoint/.test(to) ? "O Instagram quer confirmar que é você. Abra o app do Instagram e conecte de novo." : "A sessão do Instagram expirou. Conecte de novo.",
-      /challenge|checkpoint/.test(to) ? "checkpoint" : "login",
-    );
+    const short = to.replace(/^https:\/\/www\.instagram\.com/, "").split("?")[0];
+    if (/challenge|checkpoint/.test(to)) throw new IgError(`O Instagram quer confirmar que é você. Abra o app do Instagram e conecte de novo${detail(res.status, path, `→ ${short}`)}.`, "checkpoint");
+    if (/accounts\/login/.test(to)) throw new IgError(`A sessão do Instagram expirou. Conecte de novo${detail(res.status, path, `→ ${short}`)}.`, "login");
+    throw new IgError(`O Instagram redirecionou o pedido${detail(res.status, path, `→ ${short}`)}.`, "other");
   }
   if (res.status === 429) {
-    throw new IgError("O Instagram pediu uma pausa (muitos pedidos). Espere alguns minutos e tente de novo.", "rate");
+    throw new IgError(`O Instagram pediu uma pausa (muitos pedidos). Espere alguns minutos e tente de novo${detail(429, path)}.`, "rate");
   }
   const text = await res.text();
   let body: Body | null = null;
   try {
     body = JSON.parse(text) as Body;
   } catch {
-    // HTML no lugar de JSON = página de login.
-    throw /not-logged-in|\/accounts\/login|login_required/i.test(text.slice(0, 6000))
-      ? new IgError("A sessão do Instagram expirou. Conecte de novo.", "login")
-      : new IgError(`Resposta inesperada do Instagram (${res.status} em ${path.split("?")[0]}).`, "other");
+    // HTML no lugar de JSON: só é "deslogado" se a página diz isso (toda
+    // página do Instagram tem links para /accounts/login, logado ou não).
+    throw /class="[^"]*\bnot-logged-in\b/.test(text.slice(0, 6000))
+      ? new IgError(`A sessão do Instagram expirou. Conecte de novo${detail(res.status, path, "página de deslogado")}.`, "login")
+      : new IgError(`Resposta inesperada do Instagram${detail(res.status, path, "HTML no lugar de JSON")}.`, "other");
   }
-  const err = classify(res.status, body);
+  const err = classify(res.status, body, path);
   if (err) throw err;
   return body as T;
 }
@@ -372,9 +377,24 @@ export async function me(jar: Jar, usernameHint?: string): Promise<IgUser> {
       return { pk: p.pk || pk, username: p.username, fullName: p.fullName, pic: p.pic, isPrivate: p.isPrivate, isVerified: p.isVerified };
     }
   } catch (err) {
-    if (err instanceof IgError && (err.kind === "login" || err.kind === "checkpoint")) throw err;
+    // Só o pedido de confirmação ("Fui eu") barra a conexão. Qualquer outra
+    // recusa aqui não descarta uma sessão recém-criada: se ela não valer
+    // mesmo, a primeira leitura mostra o motivo exato.
+    if (err instanceof IgError && err.kind === "checkpoint") throw err;
+    console.warn("Feed: não deu para ler o perfil da conta conectada:", (err as Error).message);
   }
   return { pk, username: username || pk, fullName: "", pic: "", isPrivate: false, isVerified: false };
+}
+
+// Segunda opinião antes de dar a sessão por perdida: uma recusa num perfil
+// ou numa rota específica não pode derrubar tudo.
+export async function stillLoggedIn(jar: Jar): Promise<boolean> {
+  try {
+    const r = await igGet<{ form_data?: { username?: string } }>(jar, "/api/v1/accounts/edit/web_form_data/");
+    return Boolean(r.form_data);
+  } catch (err) {
+    return !(err instanceof IgError && err.kind === "login");
+  }
 }
 
 export async function followingPage(jar: Jar, maxId?: string): Promise<{ users: IgUser[]; next?: string }> {
@@ -497,7 +517,7 @@ function uniquePosts(raw: RawMedia[]): Post[] {
 
 async function igAct<T>(jar: Jar, path: string, form: Record<string, string>, code?: string): Promise<T> {
   const { status, body } = await igPost<T>(jar, path, form, code ? `${IG}/p/${code}/` : `${IG}/`);
-  const err = classify(status, body);
+  const err = classify(status, body, path);
   if (err) throw err;
   return body;
 }
