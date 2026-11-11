@@ -25,13 +25,17 @@ function dayName(d: FeedDay, today: string): string {
 }
 
 function ItemRow({ it, compact }: { it: FeedItem; compact?: boolean }) {
-  const when = it.time ? (it.end && it.end !== it.time && !compact ? `${it.time}–${it.end}` : it.time) : compact ? "" : "dia todo";
+  const time = it.time ? (
+    <>
+      {it.time}
+      {!compact && it.end && it.end !== it.time && <small>{it.end}</small>}
+    </>
+  ) : compact ? null : (
+    <span className="allday">dia todo</span>
+  );
   const body = (
     <>
-      {(!compact || when) && <span className="fi-time">{when}</span>}
-      <span className="fi-ico">
-        <Icon name={it.icon} size={compact ? 12 : 14} />
-      </span>
+      <span className="fi-time">{time}</span>
       <span className="fi-text">
         <span className="fi-title">{it.title}</span>
         {it.sub && !compact && <span className="fi-sub">{it.sub}</span>}
@@ -41,11 +45,11 @@ function ItemRow({ it, compact }: { it: FeedItem; compact?: boolean }) {
   return (
     <li className="fi" data-kind={it.kind}>
       {it.href ? (
-        <Link href={it.href} className="fi-link">
+        <Link href={it.href} className="fi-in">
           {body}
         </Link>
       ) : (
-        body
+        <div className="fi-in">{body}</div>
       )}
     </li>
   );
