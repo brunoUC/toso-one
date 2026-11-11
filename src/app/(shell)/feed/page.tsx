@@ -55,20 +55,38 @@ export default async function FeedPage() {
         <ol className="feed-steps">
           <li>
             Instale o app <a href={USERSCRIPTS} target="_blank" rel="noreferrer noopener"><b>Userscripts</b></a> (grátis, de código aberto) e abra uma vez: ele
-            pede para escolher uma pasta. Escolha qualquer uma (pode ser “No iPhone”).
+            pede para escolher uma pasta. Escolha qualquer uma (pode ser “No iPhone”) e guarde qual foi.
           </li>
           <li>
-            Em <b>Ajustes → Apps → Safari → Extensões → Userscripts</b>, ative e deixe <b>Permitir</b> em instagram.com (ou em todos os sites).
+            Em <b>Ajustes → Apps → Safari → Extensões → Userscripts</b>, ative e, em <b>Outros sites</b> (ou “Todos os sites”), escolha <b>Permitir</b>. Ele
+            precisa estar liberado aqui no toso one também, para oferecer a instalação.
           </li>
           <li>
-            No <b>Safari</b>, abra{" "}
+            Abra{" "}
             <SafariLink href={SCRIPT}>
               <b>o ajuste do toso one</b>
-            </SafariLink>
-            , toque no botão <b>aA</b> (ou no ícone de quebra-cabeça) da barra de endereço → <b>Userscripts</b> → <b>Install</b>.
+            </SafariLink>{" "}
+            no <b>Safari</b> (aparece um texto de código). Toque no <b>aA</b> da barra de endereço → <b>Userscripts</b>. Se ele pedir, toque em{" "}
+            <b>Permitir sempre neste site</b>. Na janelinha que abre, toque em <b>Install</b>.
           </li>
           <li>Abra o feed acima e entre com a sua conta do Instagram, como faria no instagram.com.</li>
         </ol>
+        <details className="feed-planb">
+          <summary>O “Install” não apareceu?</summary>
+          <ol className="feed-steps">
+            <li>
+              <a href={SCRIPT} download="instagram-limpo.user.js">
+                <b>Baixe o arquivo do ajuste</b>
+              </a>{" "}
+              (o Safari pergunta se quer baixar: toque em <b>Baixar</b>).
+            </li>
+            <li>
+              No app <b>Arquivos</b>, abra <b>Downloads</b>, segure o dedo em <code>instagram-limpo.user.js</code> → <b>Mover</b> → a pasta que você escolheu
+              no Userscripts.
+            </li>
+            <li>Abra o feed: o Userscripts lê a pasta sozinho. Confira no <b>aA</b> → <b>Userscripts</b> que “Instagram limpo” aparece ligado.</li>
+          </ol>
+        </details>
         <p className="form-note">
           O ajuste roda só no Safari. Por isso, no toso one instalado na Tela de Início, os botões daqui abrem o Instagram no Safari (e não numa janela
           dentro do app). No Mac, o mesmo app Userscripts (ou o Tampermonkey) instala o ajuste pelo mesmo link.
