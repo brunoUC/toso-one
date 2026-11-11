@@ -1635,3 +1635,7 @@ a.origin-tab:hover { border-color: var(--ink-2); }
 .amz-steps { margin: 14px 0 0; padding-left: 20px; display: grid; gap: 8px; font-size: 13px; color: var(--ink-2); line-height: 1.55; }
 .amz-steps b { color: var(--ink-1); font-weight: 500; }
 .amz-steps a { color: var(--tone); }
+.wx-place { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--ink-3); }
+.loc-btn { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 2px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--hairline-strong); background: transparent; color: var(--ink-2); font-size: 12px; cursor: pointer; }
+.loc-btn:hover { background: var(--surface-2); color: var(--ink-1); }
+.loc-btn:disabled { opacity: .7; cursor: progress; }

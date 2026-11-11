@@ -7,6 +7,7 @@ import { highlightOfTheDay } from "./estante";
 import { getOverview } from "./financas";
 import { holidayMap, shiftDay, upcomingHolidays, weekday, type Holiday, type UpcomingHoliday } from "./holidays";
 import { getWeather, type DayWeather, type Weather } from "./weather";
+import { defaultPlace, type Place } from "./place";
 
 export type { Routine };
 
@@ -117,11 +118,11 @@ function eventItem(e: CalEvent, multiCalendar: boolean): FeedItem {
 
 // personal = false (sem sessão): só tempo e feriados, nada de agenda,
 // rotinas ou contas.
-export async function getFeed({ personal = true }: { personal?: boolean } = {}): Promise<Feed> {
+export async function getFeed({ personal = true, place = defaultPlace() }: { personal?: boolean; place?: Place } = {}): Promise<Feed> {
   const { today, hour } = todayInSp();
   const last = shiftDay(today, DAYS - 1);
   const [weather, routines, cal, bills, highlight] = await Promise.all([
-    getWeather(today, hour),
+    getWeather(place),
     personal ? getRoutines() : Promise.resolve([] as Routine[]),
     personal && calendarConfigured() ? getCalendar(today, last) : Promise.resolve({ events: [] as CalEvent[], errors: [] as string[] }),
     personal ? billItems(today, last) : Promise.resolve(new Map<string, FeedItem[]>()),

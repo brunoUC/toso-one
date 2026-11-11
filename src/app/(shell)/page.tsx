@@ -12,6 +12,7 @@ import { getShelf } from "@/lib/estante";
 import { todayInSp } from "@/lib/semana";
 import { brl, dateEyebrow, greeting, relativeDay } from "@/lib/format";
 import { upcomingHolidays } from "@/lib/holidays";
+import { currentPlace } from "@/lib/place";
 import { getWeather } from "@/lib/weather";
 
 const EVENT_LABEL: Record<string, { icon: IconName; text: (d: string) => string }> = {
@@ -48,8 +49,9 @@ function Activity({ events }: { events: ActivityEvent[] }) {
 }
 
 export default async function HubPage() {
-  const { today, hour } = todayInSp();
-  const [session, flights, weather] = await Promise.all([getSession(), fetchFlights(), getWeather(today, hour)]);
+  const { today } = todayInSp();
+  const place = await currentPlace();
+  const [session, flights, weather] = await Promise.all([getSession(), fetchFlights(), getWeather(place)]);
   const nextHoliday = upcomingHolidays(today, 4).find((h) => !h.weekend);
   const [events, shelfItems] = session ? await Promise.all([recentEvents(5), getShelf().catch(() => [])]) : [[], []];
   const open = shelfItems.filter((i) => i.status === "want" || i.status === "doing");
@@ -92,7 +94,7 @@ export default async function HubPage() {
                   {weather.now.temp}° · {weather.now.label}
                 </span>
                 <span className="l">
-                  {weather.place}
+                  {weather.place ?? "Aqui"}
                   {weather.days[0] ? `, ${weather.days[0].min}°–${weather.days[0].max}° hoje` : ""}
                 </span>
               </div>
@@ -157,7 +159,7 @@ export default async function HubPage() {
         <h2>Sua semana</h2>
       </div>
       <Suspense fallback={<SemanaSkeleton />}>
-        <Semana personal={Boolean(session)} />
+        <Semana personal={Boolean(session)} place={place} />
       </Suspense>
 
       {session && convexConfigured() && (

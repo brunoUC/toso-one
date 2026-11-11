@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
+import { UseLocationButton } from "@/components/LocationSync";
+import type { Place } from "@/lib/place";
 import { getFeed, type FeedDay, type FeedItem, type Routine } from "@/lib/semana";
 import { daysBetween, type UpcomingHoliday } from "@/lib/holidays";
 
@@ -69,10 +71,16 @@ function Today({ day, feed }: { day: FeedDay; feed: Awaited<ReturnType<typeof ge
                 {w.now.label}
                 {day.weather ? ` · ${day.weather.min}°–${day.weather.max}°` : ""}
               </span>
+              <span className="wx-place">
+                <Icon name="pin" size={11} />
+                {w.place ?? "Sua localização"}
+                {w.source === "ip" ? " (pela rede)" : w.source === "ultimo" ? " (último lugar)" : w.source === "padrao" ? " (padrão)" : ""}
+              </span>
             </div>
           </div>
         )}
       </div>
+      {w && w.source !== "gps" && <UseLocationButton label={w.place ? `Não está em ${w.place}? Usar minha localização` : "Usar minha localização"} />}
       {w?.rainHint && (
         <p className="wx-hint">
           <Icon name="rain" size={14} />
@@ -227,8 +235,8 @@ function CalendarHint({ errors, configured }: { errors: string[]; configured: bo
   );
 }
 
-export async function Semana({ personal }: { personal: boolean }) {
-  const feed = await getFeed({ personal });
+export async function Semana({ personal, place }: { personal: boolean; place: Place }) {
+  const feed = await getFeed({ personal, place });
   const [today, ...next] = feed.days;
   return (
     <div className="feed">

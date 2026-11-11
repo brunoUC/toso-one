@@ -220,8 +220,14 @@ Conectar outro banco: conecte no Meu Pluggy e rode
 - **Feriados** (`src/lib/holidays.ts`): nacionais, estaduais e municipais
   de São Paulo, calculados aqui (inclusive Páscoa, Carnaval e Corpus
   Christi). O card mostra o próximo, o feriadão e a emenda possível.
-- **Tempo** (`src/lib/weather.ts`): Open-Meteo, sem chave. São Paulo por
-  padrão; `TOSO_LAT`, `TOSO_LON` e `TOSO_PLACE` trocam.
+- **Tempo** (`src/lib/weather.ts`, `src/lib/place.ts`): Open-Meteo, sem
+  chave, na cidade em que ele está. Ordem: GPS do aparelho (com permissão;
+  "Usar minha localização" no card de hoje, depois atualiza sozinho ao abrir
+  quando ele anda mais de 3 km), cidade pelo IP (cabeçalhos da Vercel),
+  último lugar conhecido (é o que o resumo da manhã usa) e, por fim,
+  `TOSO_LAT`/`TOSO_LON`/`TOSO_PLACE` ou São Paulo. As coordenadas são
+  arredondadas a ~1 km; o nome da cidade vem do OpenStreetMap (Nominatim).
+  Viajando, dias e horas da previsão seguem o fuso do lugar.
 - **Contas e faturas**: as contas do mês que ainda não apareceram no
   extrato (no dia em que costumam ser pagas) e as faturas que fecham.
 - **Highlight do dia** da Estante.

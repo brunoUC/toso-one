@@ -265,6 +265,10 @@ export default defineSchema({
     .index("by_hash", ["hash"])
     .index("by_book", ["book"]),
 
+  // Preferências soltas, uma linha por chave (ex.: "local" = último lugar
+  // em que ele abriu o toso one, para o tempo do resumo da manhã).
+  settings: defineTable({ key: v.string(), value: v.string(), updatedAt: v.number() }).index("by_key", ["key"]),
+
   // Aparelhos que aceitaram notificações (Web Push). Um por endpoint.
   pushSubs: defineTable({
     endpoint: v.string(),

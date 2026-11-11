@@ -1,21 +1,20 @@
 import "server-only";
 import type { IconName } from "@/components/Icon";
+import type { Place } from "./place";
 
-// Previsão pelo Open-Meteo (gratuito, sem chave). O lugar padrão é São
-// Paulo; TOSO_LAT / TOSO_LON trocam. Cache de 30 minutos.
+// Previsão pelo Open-Meteo (gratuito, sem chave) para onde ele está
+// (src/lib/place.ts). Cache de 30 minutos por lugar. Dias e horas vêm no
+// fuso do próprio lugar, então viajando o "hoje" é o de lá.
 
 export type DayWeather = { date: string; code: number; max: number; min: number; rain: number; label: string; icon: IconName };
 export type Weather = {
-  place: string;
+  place: string | null;
+  source: Place["source"];
   now: { temp: number; feels: number; code: number; label: string; icon: IconName };
   days: DayWeather[];
   // Frase curta sobre a chuva de hoje ("chuva provável a partir das 15h").
   rainHint: string | null;
 };
-
-const PLACE = process.env.TOSO_PLACE || "São Paulo";
-const LAT = Number(process.env.TOSO_LAT || -23.5505);
-const LON = Number(process.env.TOSO_LON || -46.6333);
 
 // Códigos WMO usados pelo Open-Meteo.
 export function describe(code: number): { label: string; icon: IconName } {
@@ -31,7 +30,7 @@ export function describe(code: number): { label: string; icon: IconName } {
 }
 
 type Raw = {
-  current: { temperature_2m: number; apparent_temperature: number; weather_code: number };
+  current: { time: string; temperature_2m: number; apparent_temperature: number; weather_code: number };
   hourly: { time: string[]; precipitation_probability: number[] };
   daily: {
     time: string[];
@@ -54,14 +53,14 @@ function rainHint(raw: Raw, today: string, nowHour: number): string | null {
   return `Chuva provável ${when} (${peak}%). Leve guarda-chuva.`;
 }
 
-export async function getWeather(today: string, nowHour: number): Promise<Weather | null> {
+export async function getWeather(place: Place): Promise<Weather | null> {
   const params = new URLSearchParams({
-    latitude: String(LAT),
-    longitude: String(LON),
+    latitude: String(place.lat),
+    longitude: String(place.lon),
     current: "temperature_2m,apparent_temperature,weather_code",
     hourly: "precipitation_probability",
     daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-    timezone: "America/Sao_Paulo",
+    timezone: "auto",
     forecast_days: "8",
   });
   try {
@@ -71,9 +70,13 @@ export async function getWeather(today: string, nowHour: number): Promise<Weathe
     });
     if (!res.ok) return null;
     const raw = (await res.json()) as Raw;
+    // "Agora" no fuso do lugar (current.time vem como AAAA-MM-DDTHH:MM local).
+    const today = raw.current.time.slice(0, 10);
+    const nowHour = Number(raw.current.time.slice(11, 13));
     const d = raw.daily;
     return {
-      place: PLACE,
+      place: place.name,
+      source: place.source,
       now: {
         temp: Math.round(raw.current.temperature_2m),
         feels: Math.round(raw.current.apparent_temperature),

@@ -1,3 +1,4 @@
+import { LocationSync } from "@/components/LocationSync";
 import { TopBar } from "@/components/TopBar";
 import { getSession } from "@/lib/auth";
 
@@ -6,6 +7,7 @@ export default async function ShellLayout({ children }: { children: React.ReactN
   return (
     <>
       <TopBar loggedIn={Boolean(session)} />
+      <LocationSync />
       {children}
     </>
   );
