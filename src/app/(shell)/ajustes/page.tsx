@@ -7,7 +7,9 @@ import { requireSession } from "@/lib/auth";
 import { convexConfigured, listPasskeys, type StoredPasskey } from "@/lib/convex";
 import { passwordConfigured } from "@/lib/password";
 import { THEME_COOKIE } from "@/lib/theme";
+import { getRoutines } from "@/lib/feed";
 import { RemovePasskey, SignOut, ThemePicker } from "./controls";
+import { RoutinesEditor } from "./Routines";
 
 export const metadata: Metadata = { title: "Ajustes" };
 
@@ -25,6 +27,7 @@ export default async function AjustesPage() {
       convexError = (err as Error).message;
     }
   }
+  const routines = convexOk && !convexError ? await getRoutines() : [];
   const expires = dateFmt.format(session.expiresAt * 1000);
   const theme = (await cookies()).get(THEME_COOKIE)?.value === "grafite" ? "grafite" : "claro";
 
@@ -75,6 +78,17 @@ export default async function AjustesPage() {
           )}
         </section>
 
+        <section className="card" id="rotinas">
+          <h2>
+            <span className="ti">
+              <Icon name="repeat" size={15} />
+            </span>
+            Rotinas
+          </h2>
+          <p className="card-sub">O que se repete toda semana. Aparece no feed da página inicial nos dias certos e no resumo da manhã. Não vira tarefa: nada para marcar.</p>
+          {convexOk && !convexError ? <RoutinesEditor routines={routines} /> : <p className="form-note">Precisa do Convex configurado.</p>}
+        </section>
+
         <section className="card">
           <h2>
             <span className="ti">
@@ -82,7 +96,7 @@ export default async function AjustesPage() {
             </span>
             Notificações
           </h2>
-          <p className="card-sub">Avisos de fatura (quanto transferir antes de fechar) e o resumo semanal da XP.</p>
+          <p className="card-sub">Resumo da manhã (agenda, rotinas e chuva do dia), avisos de fatura e o resumo semanal da XP.</p>
           {convexOk && !convexError ? <PushToggle /> : <p className="form-note">Precisa do Convex configurado.</p>}
         </section>
 

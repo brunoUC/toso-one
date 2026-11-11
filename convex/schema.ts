@@ -218,6 +218,17 @@ export default defineSchema({
   // pagamento de cada item (null = pela categoria).
   finChecklist: defineTable({ key: v.string(), payee: v.union(v.string(), v.null()) }).index("by_key", ["key"]),
 
+  // Rotinas da semana mostradas no feed do hub (ex.: levar o Kobe na creche
+  // terça, quinta e sexta). Não são tarefas: não se marcam como feitas.
+  routines: defineTable({
+    title: v.string(),
+    days: v.array(v.number()), // 0 = domingo … 6 = sábado
+    time: v.optional(v.string()), // HH:MM
+    note: v.optional(v.string()),
+    skipHolidays: v.boolean(), // não aparece em feriado
+    createdAt: v.number(),
+  }),
+
   // Aparelhos que aceitaram notificações (Web Push). Um por endpoint.
   pushSubs: defineTable({
     endpoint: v.string(),

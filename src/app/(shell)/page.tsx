@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { AppCard, NextAppCard, type FlightHighlight } from "@/components/AppCard";
+import { Feed, FeedSkeleton } from "@/components/feed/Feed";
 import { EnablePasskeyButton } from "@/components/EnablePasskey";
 import { Icon, type IconName } from "@/components/Icon";
 import { Circuit, RobotArm } from "@/components/RobotArm";
@@ -6,7 +8,10 @@ import { APPS } from "@/lib/apps";
 import { getSession } from "@/lib/auth";
 import { convexConfigured, recentEvents, type ActivityEvent } from "@/lib/convex";
 import { fetchFlights, tripText } from "@/lib/flights";
+import { todayInSp } from "@/lib/feed";
 import { brl, dateEyebrow, greeting, relativeDay } from "@/lib/format";
+import { upcomingHolidays } from "@/lib/holidays";
+import { getWeather } from "@/lib/weather";
 
 const EVENT_LABEL: Record<string, { icon: IconName; text: (d: string) => string }> = {
   login_passkey: { icon: "face", text: (d) => `Entrada com Face ID · ${d}` },
@@ -42,7 +47,9 @@ function Activity({ events }: { events: ActivityEvent[] }) {
 }
 
 export default async function HubPage() {
-  const [session, flights] = await Promise.all([getSession(), fetchFlights()]);
+  const { today, hour } = todayInSp();
+  const [session, flights, weather] = await Promise.all([getSession(), fetchFlights(), getWeather(today, hour)]);
+  const nextHoliday = upcomingHolidays(today, 4).find((h) => !h.weekend);
   const events = session ? await recentEvents(5) : [];
   // Destaque do card de Voos: a melhor tarifa com veredito "comprar"/"avaliar",
   // ou a mais barata de todas quando nenhuma entrou na faixa.
@@ -56,7 +63,6 @@ export default async function HubPage() {
         trip: tripText(top.best),
       }
     : null;
-  const privateCount = APPS.filter((a) => a.private).length;
   const daysLeft = session ? Math.max(0, Math.ceil((session.expiresAt * 1000 - Date.now()) / 86_400_000)) : null;
 
   return (
@@ -71,26 +77,37 @@ export default async function HubPage() {
           <em>Tudo em um lugar.</em>
         </h1>
         <div className="hero-stats">
-          <div className="st">
-            <span className="si">
-              <Icon name="grid" />
-            </span>
-            <div>
-              <span className="k">{APPS.length} apps</span>
-              <span className="l">
-                {APPS.length - privateCount} aberto · {privateCount} privado
+          {weather && (
+            <div className="st">
+              <span className="si">
+                <Icon name={weather.now.icon} />
               </span>
+              <div>
+                <span className="k">
+                  {weather.now.temp}° · {weather.now.label}
+                </span>
+                <span className="l">
+                  {weather.place}
+                  {weather.days[0] ? `, ${weather.days[0].min}°–${weather.days[0].max}° hoje` : ""}
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="st">
-            <span className="si">
-              <Icon name="clock" />
-            </span>
-            <div>
-              <span className="k">05:13</span>
-              <span className="l">coleta diária de voos</span>
+          )}
+          {nextHoliday && (
+            <div className="st">
+              <span className="si">
+                <Icon name="party" />
+              </span>
+              <div>
+                <span className="k">
+                  {nextHoliday.daysUntil === 0 ? "Hoje" : nextHoliday.daysUntil === 1 ? "Amanhã" : `Em ${nextHoliday.daysUntil} dias`}
+                </span>
+                <span className="l">
+                  {nextHoliday.name}, {nextHoliday.weekdayName}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
           <div className="st">
             <span className="si">
               <Icon name={session ? "face" : "lock"} />
@@ -128,6 +145,16 @@ export default async function HubPage() {
         ))}
         <NextAppCard />
       </div>
+
+      <div className="section-title">
+        <span className="ti">
+          <Icon name="calendar" size={18} />
+        </span>
+        <h2>Sua semana</h2>
+      </div>
+      <Suspense fallback={<FeedSkeleton />}>
+        <Feed personal={Boolean(session)} />
+      </Suspense>
 
       {session && convexConfigured() && (
         <>

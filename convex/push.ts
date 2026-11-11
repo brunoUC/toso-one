@@ -79,3 +79,13 @@ export const test = action({
     return sendAll(ctx, { title: "toso one", body: "Notificações funcionando neste aparelho.", url: "/ajustes", tag: "teste" });
   },
 });
+
+// Resumo da manhã do feed do hub: o Next monta o texto (agenda, rotinas,
+// tempo) e pede o envio aqui, com o segredo do servidor.
+export const notify = action({
+  args: { secret: v.string(), title: v.string(), body: v.string(), url: v.optional(v.string()), tag: v.optional(v.string()) },
+  handler: async (ctx, { secret, ...msg }) => {
+    assertServer(secret);
+    return sendAll(ctx, msg);
+  },
+});
