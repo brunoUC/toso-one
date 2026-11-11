@@ -58,10 +58,16 @@ async function persist(ctx: Ctx, jar: ig.Jar, snapshot: string) {
   if (JSON.stringify(jar) !== snapshot) await ctx.runMutation(ref.setJar, { jar: await seal(jar) });
 }
 
-async function fail(ctx: Ctx, err: unknown): Promise<string> {
+async function fail(ctx: Ctx, err: unknown, jar?: ig.Jar): Promise<string> {
   const e = err as Error;
-  if (e instanceof ig.IgError && (e.kind === "login" || e.kind === "checkpoint")) {
-    await ctx.runMutation(ref.setStatus, { status: e.kind === "login" ? "expired" : "checkpoint", error: e.message });
+  console.error("Feed/Instagram:", e.message);
+  if (e instanceof ig.IgError && e.kind === "checkpoint") {
+    await ctx.runMutation(ref.setStatus, { status: "checkpoint", error: e.message });
+  }
+  if (e instanceof ig.IgError && e.kind === "login") {
+    // Confere antes de derrubar: se a conta ainda responde, foi só aquele pedido.
+    if (jar && (await ig.stillLoggedIn(jar))) return e.message.replace("A sessão do Instagram expirou. Conecte de novo", "O Instagram recusou este pedido");
+    await ctx.runMutation(ref.setStatus, { status: "expired", error: e.message });
   }
   return e.message;
 }
@@ -111,9 +117,11 @@ async function runTick(ctx: Ctx, manual: boolean) {
             await ctx.runMutation(ref.savePosts, { pk: who.pk, posts: [], retryInMs: 7 * 24 * 3_600_000 });
             continue;
           }
-          // Erro estranho num perfil só: pula ele por um dia. Vários seguidos
-          // = problema do lado de lá; para a rodada e tenta na próxima.
-          if (kind === "other" && ++odd < 3) {
+          // Erro estranho num perfil só (inclusive "deslogado" com a conta
+          // ainda funcionando): pula ele por um dia. Vários seguidos =
+          // problema do lado de lá; para a rodada e tenta na próxima.
+          const odd1 = kind === "other" || (kind === "login" && (await ig.stillLoggedIn(jar)));
+          if (odd1 && ++odd < 3) {
             await ctx.runMutation(ref.savePosts, { pk: who.pk, posts: [], retryInMs: 24 * 3_600_000 });
             continue;
           }
@@ -122,7 +130,7 @@ async function runTick(ctx: Ctx, manual: boolean) {
       }
     } catch (err) {
       rateLimited = err instanceof ig.IgError && err.kind === "rate";
-      await fail(ctx, err);
+      await fail(ctx, err, jar);
     } finally {
       await persist(ctx, jar, snapshot);
     }
@@ -213,7 +221,7 @@ async function live<T>(ctx: Ctx, fn: (jar: ig.Jar) => Promise<T>): Promise<{ ok:
   try {
     return { ok: true, data: await fn(s.jar) };
   } catch (err) {
-    return { ok: false, error: await fail(ctx, err), ...(err instanceof ig.IgError ? { kind: err.kind } : {}) };
+    return { ok: false, error: await fail(ctx, err, s.jar), ...(err instanceof ig.IgError ? { kind: err.kind } : {}) };
   } finally {
     await persist(ctx, s.jar, s.snapshot);
   }
