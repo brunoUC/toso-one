@@ -242,4 +242,67 @@ export default defineSchema({
     scope: v.optional(v.string()), // slug ou "grupo:Nome" quando source = spend
     createdAt: v.number(),
   }),
+
+  // ── Feed (Instagram só de quem ele segue, em ordem cronológica) ──────────
+
+  // A conta conectada (uma linha só). `jar` = cookies da sessão, cifrados.
+  igAccount: defineTable({
+    pk: v.optional(v.string()),
+    username: v.optional(v.string()),
+    fullName: v.optional(v.string()),
+    pic: v.optional(v.string()),
+    jar: v.optional(v.string()),
+    status: v.string(), // ok | expired | checkpoint | pending2fa
+    error: v.optional(v.string()),
+    connectedAt: v.optional(v.number()),
+    // Login esperando o código de dois fatores.
+    pendingJar: v.optional(v.string()),
+    pendingIdentifier: v.optional(v.string()),
+    pendingUsername: v.optional(v.string()),
+    pendingMethod: v.optional(v.string()),
+    // Andamento da leitura (instagram/sync.ts).
+    followingSyncedAt: v.optional(v.number()),
+    lastTickAt: v.optional(v.number()),
+    runningUntil: v.optional(v.number()),
+    backoffUntil: v.optional(v.number()),
+    backoffLevel: v.optional(v.number()),
+  }),
+
+  // Quem ele segue. `nextAt` = quando ler os posts dessa pessoa de novo:
+  // quem posta muito é lido mais vezes.
+  igFollowing: defineTable({
+    pk: v.string(),
+    username: v.string(),
+    fullName: v.string(),
+    pic: v.string(),
+    isPrivate: v.boolean(),
+    isVerified: v.boolean(),
+    checkedAt: v.number(), // 0 = nunca lido
+    lastPostAt: v.number(), // 0 = sem posts
+    nextAt: v.number(),
+    seenAt: v.number(), // última vez que apareceu na lista de quem ele segue
+  })
+    .index("by_pk", ["pk"])
+    .index("by_nextAt", ["nextAt"]),
+
+  // Posts de quem ele segue (só os recentes; os antigos são apagados).
+  igPosts: defineTable({
+    mediaId: v.string(),
+    code: v.string(),
+    ownerPk: v.string(),
+    username: v.string(),
+    fullName: v.string(),
+    pic: v.string(),
+    takenAt: v.number(),
+    kind: v.string(), // photo | video | carousel | reel
+    caption: v.string(),
+    items: v.array(v.object({ type: v.string(), url: v.string(), video: v.optional(v.string()), w: v.number(), h: v.number() })),
+    location: v.optional(v.object({ pk: v.string(), name: v.string() })),
+    likes: v.optional(v.number()),
+    comments: v.optional(v.number()),
+    fetchedAt: v.number(),
+  })
+    .index("by_mediaId", ["mediaId"])
+    .index("by_takenAt", ["takenAt"])
+    .index("by_owner", ["ownerPk", "takenAt"]),
 });

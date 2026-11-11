@@ -1,11 +1,12 @@
 # toso one
 
-Hub pessoal de ferramentas. Hoje tem dois apps:
+Hub pessoal de ferramentas. Hoje tem três apps:
 
 | App | Acesso | O que é |
 |---|---|---|
 | **Voos** | aberto (editor privado) | Tarifas do [Flight Tracker](https://github.com/brunoUC/Flight_Tracker), com datas, link de compra e editor de rotas |
 | **Finanças** | privado | Patrimônio, extrato de todos os bancos, gastos por categoria, metas e investimentos, via Open Finance |
+| **Feed** | privado | Instagram só de quem você segue, em ordem cronológica, com busca. Sem Reels, Stories ou sugeridos |
 
 Next.js 16 + Convex. Login com **Face ID / Touch ID (passkey)** e senha de reserva.
 
@@ -195,6 +196,50 @@ variáveis de ambiente do Convex).
 
 Conectar outro banco: conecte no Meu Pluggy e rode
 `npx convex run --prod financas/sync:addItems '{"itemIds":["<id>"]}'`.
+
+## Feed
+
+Um Instagram reduzido: o feed de quem você segue, do mais novo para o mais
+antigo, e a busca (perfis, lugares, hashtags). Não tem Reels, Stories,
+Explorar, anúncios nem posts sugeridos, e não curte, comenta ou segue.
+
+O Instagram não tem API oficial para o feed de uma conta pessoal, então o
+toso one usa a API web (a mesma do instagram.com) com a sua sessão e
+**monta o próprio feed**: lê a lista de quem você segue e, aos poucos, os
+posts recentes de cada perfil. Por isso não existe algoritmo nem sugerido:
+só entra post de quem está na sua lista, ordenado pela data.
+
+- **Conectar** (`/feed`): usuário e senha (e o código de dois fatores, se
+  tiver). A senha vai direto ao Instagram e não é guardada; fica só a sessão
+  (cookies), **cifrada** (AES-GCM, chave derivada do `TOSO_SERVER_SECRET`)
+  na tabela `igAccount` do Convex. Se o Instagram barrar a entrada vinda de
+  servidor, o plano B é colar o cookie `sessionid` de um navegador logado.
+- **Leitura** (`convex/instagram/sync.ts`, cron a cada 10 min): relê a
+  lista de quem você segue uma vez por dia e lê ~12 perfis por rodada (20
+  enquanto ainda tem perfil nunca lido), com 2,5 a 6 s entre pedidos, e
+  dorme das 02h às 07h. Quem posta mais é lido mais vezes (de 2 h em 2 h
+  para quem postou nos últimos 3 dias, até 3 dias para quem está parado).
+  Se o Instagram pedir pausa, espera 1 h, 2 h, 4 h, até 8 h. O botão
+  "Atualizar" roda uma rodada na hora.
+- **Guarda** só os posts dos últimos 60 dias (`igPosts`). Reels de quem
+  você segue ficam guardados mas escondidos; "Com reels de quem sigo"
+  mostra.
+- **Fotos e vídeos** passam por `/api/feed/midia` (só logado, só os
+  domínios do CDN do Instagram), porque o CDN deles não deixa embutir em
+  outro site. Os links vencem em alguns dias; a próxima leitura do perfil
+  traz links novos.
+- **Busca** (`/feed/buscar`), **perfil** (`/feed/u/<usuário>`), **lugar**
+  (`/feed/local/<id>`) e **hashtag** (`/feed/tag/<nome>`) perguntam ao
+  Instagram na hora.
+
+**Riscos.** Usar a conta fora do app oficial vai contra os termos do
+Instagram. O ritmo lento existe para não parecer robô, mas o Instagram
+pode pedir para confirmar a entrada ("Fui eu") ou derrubar a sessão; aí o
+Feed mostra o aviso e pede para conectar de novo. Desconectar (no pé da
+página) apaga a sessão e tudo o que foi guardado.
+
+Os caminhos da API web do Instagram mudam sem aviso. Se uma parte parar,
+o lugar para ajustar é `convex/instagram/client.ts`.
 
 ## Adicionar um app
 
