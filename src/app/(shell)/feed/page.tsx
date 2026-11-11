@@ -3,6 +3,7 @@ import { Icon } from "@/components/Icon";
 import { requireSession } from "@/lib/auth";
 import { api, convex, convexConfigured, serverSecret } from "@/lib/convex";
 import { ForgetOld } from "./ForgetOld";
+import { SafariLink } from "./SafariLink";
 
 export const metadata: Metadata = { title: "Feed" };
 export const dynamic = "force-dynamic";
@@ -40,12 +41,12 @@ export default async function FeedPage() {
       </p>
 
       <div className="feed-open">
-        <a className="btn btn-primary" href={FOLLOWING} target="_blank" rel="noreferrer noopener">
+        <SafariLink className="btn btn-primary" href={FOLLOWING}>
           <Icon name="camera" size={18} /> Abrir o feed
-        </a>
-        <a className="btn btn-ghost" href={SEARCH} target="_blank" rel="noreferrer noopener">
+        </SafariLink>
+        <SafariLink className="btn btn-ghost" href={SEARCH}>
           <Icon name="search" size={16} /> Buscar
-        </a>
+        </SafariLink>
       </div>
 
       <section className="card feed-card">
@@ -61,17 +62,16 @@ export default async function FeedPage() {
           </li>
           <li>
             No <b>Safari</b>, abra{" "}
-            <a href={SCRIPT} target="_blank" rel="noreferrer noopener">
+            <SafariLink href={SCRIPT}>
               <b>o ajuste do toso one</b>
-            </a>
+            </SafariLink>
             , toque no botão <b>aA</b> (ou no ícone de quebra-cabeça) da barra de endereço → <b>Userscripts</b> → <b>Install</b>.
           </li>
           <li>Abra o feed acima e entre com a sua conta do Instagram, como faria no instagram.com.</li>
         </ol>
         <p className="form-note">
-          O ajuste roda só no Safari, não nos apps da Tela de Início. Para ter um ícone que abre direto no feed: no app <b>Atalhos</b>, crie um atalho com
-          “Abrir URLs” e o endereço <code>instagram.com/?variant=following</code>, depois <b>Adicionar à Tela de Início</b>. No Mac, o mesmo app Userscripts
-          (ou o Tampermonkey) instala o ajuste pelo mesmo link.
+          O ajuste roda só no Safari. Por isso, no toso one instalado na Tela de Início, os botões daqui abrem o Instagram no Safari (e não numa janela
+          dentro do app). No Mac, o mesmo app Userscripts (ou o Tampermonkey) instala o ajuste pelo mesmo link.
         </p>
       </section>
 
