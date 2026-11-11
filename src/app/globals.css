@@ -213,7 +213,7 @@ button { font: inherit; color: inherit; }
 .page { max-width: 1160px; margin: 0 auto; padding: 36px 28px 110px; }
 
 /* ════════ HUB ════════ */
-.eyebrow { font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
+.eyebrow { font: 500 11px/1.5 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 10px; }
 .display { font-family: var(--sans); font-weight: 600; letter-spacing: -0.035em; }
 
 /* Banda de boas-vindas: o azul-marinho da marca entra aqui */
@@ -612,6 +612,11 @@ a.btn { text-decoration: none; }
   background: var(--input-bg); border: 1px solid var(--hairline-strong); outline: none; min-width: 0;
 }
 .ed-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+/* Data no Safari do iPhone: sem a aparência nativa ele ignora a largura e
+   estoura a coluna; o texto fica alinhado à esquerda como nos outros campos. */
+input[type="date"].ed-input { -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; text-align: left; line-height: 34px; }
+input[type="date"].ed-input::-webkit-date-and-time-value { text-align: left; margin: 0; }
+.ed-field { min-width: 0; }
 .ed-input.num { width: 72px; text-align: right; font-variant-numeric: tabular-nums; }
 .ed-input.money { width: 96px; text-align: right; font-variant-numeric: tabular-nums; }
 .ed-actions { display: flex; gap: 6px; align-items: center; }
@@ -901,8 +906,8 @@ a.btn { text-decoration: none; }
 
 @media (max-width: 960px) {
   .vmap { grid-template-columns: 1fr; }
-  .srch-form { grid-template-columns: 1fr 1fr; }
-  .srch-form > :first-child { grid-column: 1 / -1; }
+  .srch-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .srch-form > :first-child, .srch-form > :nth-child(4) { grid-column: 1 / -1; }
   .srch-go { grid-column: 1 / -1; width: 100%; }
 }
 @media (max-width: 560px) {
