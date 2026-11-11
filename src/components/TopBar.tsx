@@ -22,9 +22,9 @@ export function TopBar({ loggedIn }: { loggedIn: boolean }) {
       </Link>
       <nav className="nav" aria-label="Apps">
         {items.map((it) => (
-          <Link key={it.href} href={it.href} className={isActive(it.href) ? "active" : undefined}>
+          <Link key={it.href} href={it.href} className={isActive(it.href) ? "active" : undefined} aria-label={it.label}>
             <Icon name={it.icon} size={15} />
-            {it.label}
+            <span className="nl">{it.label}</span>
             {it.locked && (
               <span className="lk" aria-label="privado">
                 <Icon name="lock" size={11} />

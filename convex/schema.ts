@@ -314,7 +314,7 @@ export default defineSchema({
     pendingIdentifier: v.optional(v.string()),
     pendingUsername: v.optional(v.string()),
     pendingMethod: v.optional(v.string()),
-    // Andamento da leitura (instagram/sync.ts).
+    // Andamento da leitura do Feed antigo.
     followingSyncedAt: v.optional(v.number()),
     lastTickAt: v.optional(v.number()),
     runningUntil: v.optional(v.number()),
