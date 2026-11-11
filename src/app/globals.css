@@ -1530,3 +1530,7 @@ a.fi-in:hover .fi-title { text-decoration: underline; text-underline-offset: 3px
   .feed-open { flex-direction: column; }
   .feed-open .btn { width: 100%; }
 }
+.feed-planb { margin: 14px 0 4px; font-size: 13.5px; color: var(--ink-2); }
+.feed-planb summary { cursor: pointer; color: var(--ink-1); font-weight: 500; }
+.feed-planb .feed-steps { margin-top: 10px; }
+.feed-planb a { color: var(--tone-violet); }
