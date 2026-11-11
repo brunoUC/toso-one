@@ -109,6 +109,8 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
+/* Sem zoom por toque duplo no iPhone (a pinça é barrada em NoZoom.tsx). */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   background: var(--bg);
   color: var(--ink-1);

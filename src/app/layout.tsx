@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { cookies } from "next/headers";
+import { NoZoom } from "@/components/NoZoom";
 import { THEME_COOKIE, isTheme } from "@/lib/theme";
 import "./globals.css";
 
@@ -20,7 +21,14 @@ export const metadata: Metadata = {
   appleWebApp: { title: "toso one", capable: true, statusBarStyle: "default" },
 };
 
+// Sem zoom: no iPhone o Safari amplia a página ao tocar num campo com letra
+// menor que 16px; com a escala travada em 1 ele não amplia. O toque duplo e
+// a pinça são barrados no CSS (touch-action) e em NoZoom.
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#eceef1" },
     { media: "(prefers-color-scheme: dark)", color: "#18191c" },
@@ -36,7 +44,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       data-theme={isTheme(tema) && tema === "grafite" ? "grafite" : undefined}
       className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <NoZoom />
+        {children}
+      </body>
     </html>
   );
 }
