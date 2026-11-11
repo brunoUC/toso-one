@@ -30,6 +30,7 @@ const postV = v.object({
   location: v.optional(v.object({ pk: v.string(), name: v.string() })),
   likes: v.optional(v.number()),
   comments: v.optional(v.number()),
+  liked: v.optional(v.boolean()),
 });
 const userV = v.object({ pk: v.string(), username: v.string(), fullName: v.string(), pic: v.string(), isPrivate: v.boolean(), isVerified: v.boolean() });
 
@@ -259,6 +260,23 @@ export const nextBatch = internalQuery({
       .order("asc")
       .take(limit);
     return rows.map((r) => ({ pk: r.pk as string, username: r.username as string, never: (r.checkedAt as number) === 0 }));
+  },
+});
+
+// Depois de curtir/comentar pelo toso one: o feed guardado já mostra o
+// coração cheio e a contagem nova, sem esperar a próxima leitura.
+export const touchPost = internalMutation({
+  args: { mediaId: v.string(), liked: v.optional(v.boolean()), commentDelta: v.optional(v.number()) },
+  handler: async (ctx, { mediaId, liked, commentDelta }) => {
+    const row = await ctx.db.query("igPosts").withIndex("by_mediaId", (q) => q.eq("mediaId", mediaId)).unique();
+    if (!row) return;
+    const patch: Record<string, Value | undefined> = {};
+    if (liked !== undefined && liked !== Boolean(row.liked)) {
+      patch.liked = liked;
+      if (typeof row.likes === "number") patch.likes = Math.max(0, (row.likes as number) + (liked ? 1 : -1));
+    }
+    if (commentDelta && typeof row.comments === "number") patch.comments = Math.max(0, (row.comments as number) + commentDelta);
+    if (Object.keys(patch).length) await ctx.db.patch(row._id, patch);
   },
 });
 

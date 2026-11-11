@@ -10,6 +10,9 @@ type Body =
   | { action: "login"; username: string; password: string }
   | { action: "code"; code: string }
   | { action: "sessionid"; sessionid: string }
+  | { action: "like"; mediaId: string; on: boolean; code?: string }
+  | { action: "comment"; mediaId: string; text: string; replyTo?: string; code?: string }
+  | { action: "likeComment"; commentPk: string; on: boolean }
   | { action: "refresh" }
   | { action: "disconnect" };
 
@@ -29,6 +32,18 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   try {
     if (url.searchParams.has("status")) return NextResponse.json(await feedStatus());
+    // Comentários de um post e respostas de um comentário.
+    const media = url.searchParams.get("comentarios");
+    if (media) {
+      const replies = url.searchParams.get("respostas");
+      if (replies) {
+        return NextResponse.json(await convex().action(api.instagram.sync.replies, { secret: serverSecret(), mediaId: str(media, 40), commentPk: str(replies, 40) }));
+      }
+      const cursor = url.searchParams.get("cursor");
+      return NextResponse.json(
+        await convex().action(api.instagram.sync.comments, { secret: serverSecret(), mediaId: str(media, 40), ...(cursor ? { cursor: str(cursor, 400) } : {}) }),
+      );
+    }
     // Mais posts de um perfil (página de perfil).
     const pk = url.searchParams.get("pk");
     const max = url.searchParams.get("max");
@@ -56,6 +71,22 @@ export async function POST(request: Request) {
         return NextResponse.json(await c.action(api.instagram.sync.verifyCode, { secret, code: str(b.code, 12) }));
       case "sessionid":
         return NextResponse.json(await c.action(api.instagram.sync.connectSession, { secret, sessionid: str(b.sessionid, 400) }));
+      case "like":
+        return NextResponse.json(
+          await c.action(api.instagram.sync.like, { secret, mediaId: str(b.mediaId, 40), on: Boolean(b.on), ...(b.code ? { code: str(b.code, 40) } : {}) }),
+        );
+      case "comment":
+        return NextResponse.json(
+          await c.action(api.instagram.sync.comment, {
+            secret,
+            mediaId: str(b.mediaId, 40),
+            text: str(b.text, 2200),
+            ...(b.replyTo ? { replyTo: str(b.replyTo, 40) } : {}),
+            ...(b.code ? { code: str(b.code, 40) } : {}),
+          }),
+        );
+      case "likeComment":
+        return NextResponse.json(await c.action(api.instagram.sync.likeComment, { secret, commentPk: str(b.commentPk, 40), on: Boolean(b.on) }));
       case "refresh":
         await c.action(api.instagram.sync.refreshNow, { secret });
         return NextResponse.json({ ok: true });

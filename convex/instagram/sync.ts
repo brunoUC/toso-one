@@ -27,6 +27,7 @@ const ref = {
   nextBatch: makeFunctionReference<"query">("instagram/data:nextBatch"),
   savePosts: makeFunctionReference<"mutation">("instagram/data:savePosts"),
   tick: makeFunctionReference<"action">("instagram/sync:tick"),
+  touchPost: makeFunctionReference<"mutation">("instagram/data:touchPost"),
 };
 
 type Ctx = GenericActionCtx<GenericDataModel>;
@@ -259,5 +260,53 @@ export const tag = action({
   handler: async (ctx, { secret, name }) => {
     assertServer(secret);
     return live(ctx, (jar) => ig.tag(jar, name));
+  },
+});
+
+// ── Curtir e comentar ──────────────────────────────────────────────────────
+
+export const like = action({
+  args: { secret: v.string(), mediaId: v.string(), on: v.boolean(), code: v.optional(v.string()) },
+  handler: async (ctx, { secret, mediaId, on, code }) => {
+    assertServer(secret);
+    const r = await live(ctx, (jar) => ig.like(jar, mediaId, on, code));
+    if (r.ok) await ctx.runMutation(ref.touchPost, { mediaId, liked: on });
+    return r;
+  },
+});
+
+export const comments = action({
+  args: { secret: v.string(), mediaId: v.string(), cursor: v.optional(v.string()) },
+  handler: async (ctx, { secret, mediaId, cursor }) => {
+    assertServer(secret);
+    return live(ctx, (jar) => ig.comments(jar, mediaId, cursor));
+  },
+});
+
+export const replies = action({
+  args: { secret: v.string(), mediaId: v.string(), commentPk: v.string() },
+  handler: async (ctx, { secret, mediaId, commentPk }) => {
+    assertServer(secret);
+    return live(ctx, (jar) => ig.replies(jar, mediaId, commentPk));
+  },
+});
+
+export const comment = action({
+  args: { secret: v.string(), mediaId: v.string(), text: v.string(), replyTo: v.optional(v.string()), code: v.optional(v.string()) },
+  handler: async (ctx, { secret, mediaId, text, replyTo, code }) => {
+    assertServer(secret);
+    const clean = text.trim().slice(0, 2200);
+    if (!clean) return { ok: false as const, error: "Comentário vazio." };
+    const r = await live(ctx, (jar) => ig.addComment(jar, mediaId, clean, replyTo, code));
+    if (r.ok) await ctx.runMutation(ref.touchPost, { mediaId, commentDelta: 1 });
+    return r;
+  },
+});
+
+export const likeComment = action({
+  args: { secret: v.string(), commentPk: v.string(), on: v.boolean() },
+  handler: async (ctx, { secret, commentPk, on }) => {
+    assertServer(secret);
+    return live(ctx, (jar) => ig.likeComment(jar, commentPk, on));
   },
 });
