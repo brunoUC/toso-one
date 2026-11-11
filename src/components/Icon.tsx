@@ -168,6 +168,25 @@ const PATHS = {
       <circle cx="12" cy="10" r="2.3" />
     </>
   ),
+  book: (
+    <>
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z" />
+      <path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5M8 7.5h8" />
+    </>
+  ),
+  film: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <path d="M7.5 4v16M16.5 4v16M3 9h4.5M3 15h4.5M16.5 9H21M16.5 15H21" />
+    </>
+  ),
+  quote: (
+    <>
+      <path d="M9.5 7H6a2 2 0 0 0-2 2v3h4.5v4.5H4" />
+      <path d="M20 7h-3.5a2 2 0 0 0-2 2v3H19v4.5h-4.5" />
+    </>
+  ),
+  upload: <path d="M12 16V4M7 9l5-5 5 5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />,
 } as const;
 
 export type IconName = keyof typeof PATHS;

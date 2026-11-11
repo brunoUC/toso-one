@@ -1,11 +1,14 @@
 # toso one
 
-Hub pessoal de ferramentas. Hoje tem dois apps:
+Hub pessoal de ferramentas. A página inicial tem os apps no alto e, abaixo,
+o feed **Sua semana** (agenda, rotinas, tempo, feriados e contas). Hoje tem
+três apps:
 
 | App | Acesso | O que é |
 |---|---|---|
 | **Voos** | aberto (editor privado) | Tarifas do [Flight Tracker](https://github.com/brunoUC/Flight_Tracker), com datas, link de compra e editor de rotas |
 | **Finanças** | privado | Patrimônio, extrato de todos os bancos, gastos por categoria, metas e investimentos, via Open Finance |
+| **Estante** | privado | Quero ler / quero ver (com quem indicou), lidos e vistos, highlights do Kindle e importação do StoryGraph |
 
 Next.js 16 + Convex. Login com **Face ID / Touch ID (passkey)** e senha de reserva.
 
@@ -195,6 +198,52 @@ variáveis de ambiente do Convex).
 
 Conectar outro banco: conecte no Meu Pluggy e rode
 `npx convex run --prod financas/sync:addItems '{"itemIds":["<id>"]}'`.
+
+## Sua semana (feed da página inicial)
+
+`src/lib/feed.ts` junta, para hoje e os próximos seis dias:
+
+- **Agenda do Google Calendar** (`src/lib/calendar.ts`): sem OAuth, pelo
+  endereço secreto iCal de cada agenda (Google Calendar → Configurações →
+  a agenda → *Integrar agenda* → *Endereço secreto no formato iCal*).
+  Cadastre na Vercel em `GCAL_ICS`, uma por linha ou separadas por vírgula,
+  no formato `Nome|https://…/basic.ics`. Repetições, exceções e eventos
+  cancelados são tratados pelo `ical.js`; cache de 10 minutos. Agenda de
+  Google Workspace pode ter o endereço secreto desligado pelo administrador.
+- **Rotinas** (Ajustes → Rotinas, tabela `routines`): o que se repete toda
+  semana, como levar o Kobe na creche (ter, qui, sex). Não são tarefas:
+  não se marcam como feitas. Podem sumir em feriado.
+- **Feriados** (`src/lib/holidays.ts`): nacionais, estaduais e municipais
+  de São Paulo, calculados aqui (inclusive Páscoa, Carnaval e Corpus
+  Christi). O card mostra o próximo, o feriadão e a emenda possível.
+- **Tempo** (`src/lib/weather.ts`): Open-Meteo, sem chave. São Paulo por
+  padrão; `TOSO_LAT`, `TOSO_LON` e `TOSO_PLACE` trocam.
+- **Contas e faturas**: as contas do mês que ainda não apareceram no
+  extrato (no dia em que costumam ser pagas) e as faturas que fecham.
+- **Highlight do dia** da Estante.
+
+**Resumo da manhã**: o cron da Vercel (`vercel.json`) chama
+`/api/feed/manha` às 07:07 com `CRON_SECRET` e manda por push o dia de hoje
+(rotinas, agenda, feriado, chuva). Dia vazio não manda nada. Cadastre
+`CRON_SECRET` na Vercel (a Vercel envia sozinha no cabeçalho).
+
+## Estante
+
+`/estante`, tabelas `shelf` e `highlights` (`convex/estante.ts`).
+
+- **Adicionar pelo nome**: livros pelo Google Books (`GOOGLE_BOOKS_KEY`
+  opcional; sem chave a cota é pequena) e Open Library; filmes e séries
+  pelo TMDB com `TMDB_API_KEY` (chave v3 ou token v4, grátis em
+  themoviedb.org, títulos em português). Sem chave do TMDB, usa a busca de
+  sugestões do IMDb (título em inglês). "Indicado por" guarda quem
+  recomendou. Não achou? Dá para adicionar só pelo nome.
+- **StoryGraph**: Manage Account → Export StoryGraph Library → importar o
+  CSV na aba Lidos. Lido, lendo, quero ler e larguei, com nota, data e
+  resenha; capa pelo ISBN. Reimportar não duplica nem desfaz o que foi
+  mudado aqui.
+- **Kindle**: `documents/My Clippings.txt` (Kindle pelo cabo) ou o HTML de
+  "Exportar anotações" do app. Notas vão junto do highlight; highlight
+  esticado no Kindle atualiza o texto em vez de duplicar.
 
 ## Adicionar um app
 

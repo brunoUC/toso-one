@@ -3,6 +3,7 @@ import type { IconName } from "@/components/Icon";
 import type { Routine } from "../../convex/routines";
 import { calendarConfigured, getCalendar, type CalEvent } from "./calendar";
 import { api, convex, convexConfigured, serverSecret } from "./convex";
+import { highlightOfTheDay } from "./estante";
 import { getOverview } from "./financas";
 import { holidayMap, shiftDay, upcomingHolidays, weekday, type Holiday, type UpcomingHoliday } from "./holidays";
 import { getWeather, type DayWeather, type Weather } from "./weather";
@@ -43,6 +44,7 @@ export type Feed = {
   holidays: UpcomingHoliday[];
   routines: Routine[];
   calendar: { configured: boolean; errors: string[] };
+  highlight: { text: string; book: string; author: string | null } | null;
 };
 
 export function todayInSp(now = new Date()): { today: string; hour: number } {
@@ -118,11 +120,12 @@ function eventItem(e: CalEvent, multiCalendar: boolean): FeedItem {
 export async function getFeed({ personal = true }: { personal?: boolean } = {}): Promise<Feed> {
   const { today, hour } = todayInSp();
   const last = shiftDay(today, DAYS - 1);
-  const [weather, routines, cal, bills] = await Promise.all([
+  const [weather, routines, cal, bills, highlight] = await Promise.all([
     getWeather(today, hour),
     personal ? getRoutines() : Promise.resolve([] as Routine[]),
     personal && calendarConfigured() ? getCalendar(today, last) : Promise.resolve({ events: [] as CalEvent[], errors: [] as string[] }),
     personal ? billItems(today, last) : Promise.resolve(new Map<string, FeedItem[]>()),
+    personal ? highlightOfTheDay(today) : Promise.resolve(null),
   ]);
   const holidays = holidayMap(today, last);
   const multiCalendar = new Set(cal.events.map((e) => e.calendar)).size > 1;
@@ -162,6 +165,7 @@ export async function getFeed({ personal = true }: { personal?: boolean } = {}):
     holidays: upcomingHolidays(today, 4),
     routines,
     calendar: { configured: calendarConfigured(), errors: cal.errors },
+    highlight: highlight ? { text: highlight.text, book: highlight.book, author: highlight.author } : null,
   };
 }
 

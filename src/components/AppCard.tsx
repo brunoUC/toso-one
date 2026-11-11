@@ -23,6 +23,7 @@ function Badge({ app, unlocked }: { app: AppEntry; unlocked: boolean }) {
 }
 
 export type FlightHighlight = { label: string; route: string; price: string; trip: string } | null;
+export type ShelfSummary = { toRead: number; toWatch: number; done: number } | null;
 
 function FlightArc() {
   return (
@@ -39,7 +40,7 @@ function FlightArc() {
   );
 }
 
-export function AppCard({ app, unlocked, flight }: { app: AppEntry; unlocked: boolean; flight?: FlightHighlight }) {
+export function AppCard({ app, unlocked, flight, shelf }: { app: AppEntry; unlocked: boolean; flight?: FlightHighlight; shelf?: ShelfSummary }) {
   const locked = app.private && !unlocked;
   const href = locked ? `/entrar?de=${encodeURIComponent(app.href)}` : app.href;
 
@@ -82,6 +83,19 @@ export function AppCard({ app, unlocked, flight }: { app: AppEntry; unlocked: bo
                 <span className="note">prévia · dados de exemplo</span>
               </div>
             )}
+            {app.id === "estante" && shelf && (
+              <div className="app-shelf">
+                <span>
+                  <b>{shelf.toRead}</b>para ler
+                </span>
+                <span>
+                  <b>{shelf.toWatch}</b>para assistir
+                </span>
+                <span>
+                  <b>{shelf.done}</b>lidos e vistos
+                </span>
+              </div>
+            )}
             <span className="app-cta">
               Abrir <Icon name="arrow" size={14} />
             </span>
@@ -100,19 +114,5 @@ export function AppCard({ app, unlocked, flight }: { app: AppEntry; unlocked: bo
         </div>
       )}
     </Link>
-  );
-}
-
-export function NextAppCard() {
-  return (
-    <div className="app add" data-tone="sand">
-      <div className="plus">
-        <Icon name="cpu" size={20} />
-      </div>
-      <div className="app-name">Próximo app</div>
-      <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>
-        Cada app novo é uma entrada em <code style={{ fontFamily: "var(--mono)" }}>src/lib/apps.ts</code>
-      </div>
-    </div>
   );
 }

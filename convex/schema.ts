@@ -229,6 +229,42 @@ export default defineSchema({
     createdAt: v.number(),
   }),
 
+  // ── Estante: livros, filmes e séries ──────────────────────────────────────
+
+  // O que ele quer ler/assistir, está lendo/vendo ou já leu/viu.
+  shelf: defineTable({
+    kind: v.string(), // book | movie | series
+    status: v.string(), // want | doing | done | dropped
+    title: v.string(),
+    creator: v.optional(v.string()), // autores; no filme/série, elenco ou direção
+    year: v.optional(v.number()),
+    cover: v.optional(v.string()),
+    ref: v.optional(v.string()), // ol:/works/… · imdb:tt… · tmdb:movie:… · isbn:…
+    recommendedBy: v.optional(v.string()),
+    note: v.optional(v.string()),
+    rating: v.optional(v.number()), // 0–5
+    finishedOn: v.optional(v.string()), // AAAA-MM-DD
+    source: v.string(), // manual | storygraph
+    addedAt: v.number(),
+  })
+    .index("by_ref", ["ref"])
+    .index("by_kind_status", ["kind", "status"]),
+
+  // Highlights do Kindle (My Clippings.txt ou a exportação do app).
+  highlights: defineTable({
+    hash: v.string(), // livro + posição + texto: evita duplicar na reimportação
+    book: v.string(),
+    author: v.optional(v.string()),
+    text: v.string(),
+    note: v.optional(v.string()),
+    location: v.optional(v.string()),
+    page: v.optional(v.string()),
+    date: v.optional(v.string()), // AAAA-MM-DD em que marcou
+    importedAt: v.number(),
+  })
+    .index("by_hash", ["hash"])
+    .index("by_book", ["book"]),
+
   // Aparelhos que aceitaram notificações (Web Push). Um por endpoint.
   pushSubs: defineTable({
     endpoint: v.string(),

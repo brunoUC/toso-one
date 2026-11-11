@@ -9,7 +9,7 @@ export type AppEntry = {
   name: string;
   description: string;
   href: string;
-  icon: "plane" | "chart" | "cpu";
+  icon: "plane" | "chart" | "cpu" | "book";
   tone: Tone;
   private: boolean;
   status: "live" | "beta" | "soon";
@@ -33,6 +33,16 @@ export const APPS: AppEntry[] = [
     href: "/financas",
     icon: "chart",
     tone: "emerald",
+    private: true,
+    status: "beta",
+  },
+  {
+    id: "estante",
+    name: "Estante",
+    description: "Livros, filmes, séries e highlights do Kindle",
+    href: "/estante",
+    icon: "book",
+    tone: "violet",
     private: true,
     status: "beta",
   },

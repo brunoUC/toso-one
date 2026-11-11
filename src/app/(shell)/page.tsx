@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { AppCard, NextAppCard, type FlightHighlight } from "@/components/AppCard";
+import { AppCard, type FlightHighlight, type ShelfSummary } from "@/components/AppCard";
 import { Feed, FeedSkeleton } from "@/components/feed/Feed";
 import { EnablePasskeyButton } from "@/components/EnablePasskey";
 import { Icon, type IconName } from "@/components/Icon";
@@ -8,6 +8,7 @@ import { APPS } from "@/lib/apps";
 import { getSession } from "@/lib/auth";
 import { convexConfigured, recentEvents, type ActivityEvent } from "@/lib/convex";
 import { fetchFlights, tripText } from "@/lib/flights";
+import { getShelf } from "@/lib/estante";
 import { todayInSp } from "@/lib/feed";
 import { brl, dateEyebrow, greeting, relativeDay } from "@/lib/format";
 import { upcomingHolidays } from "@/lib/holidays";
@@ -50,7 +51,11 @@ export default async function HubPage() {
   const { today, hour } = todayInSp();
   const [session, flights, weather] = await Promise.all([getSession(), fetchFlights(), getWeather(today, hour)]);
   const nextHoliday = upcomingHolidays(today, 4).find((h) => !h.weekend);
-  const events = session ? await recentEvents(5) : [];
+  const [events, shelfItems] = session ? await Promise.all([recentEvents(5), getShelf().catch(() => [])]) : [[], []];
+  const open = shelfItems.filter((i) => i.status === "want" || i.status === "doing");
+  const shelf: ShelfSummary = session
+    ? { toRead: open.filter((i) => i.kind === "book").length, toWatch: open.filter((i) => i.kind !== "book").length, done: shelfItems.filter((i) => i.status === "done").length }
+    : null;
   // Destaque do card de Voos: a melhor tarifa com veredito "comprar"/"avaliar",
   // ou a mais barata de todas quando nenhuma entrou na faixa.
   const routes = flights.data?.routes.filter((r) => r.best) ?? [];
@@ -141,9 +146,8 @@ export default async function HubPage() {
       </div>
       <div className="apps rise">
         {APPS.map((app) => (
-          <AppCard key={app.id} app={app} unlocked={Boolean(session)} flight={flight} />
+          <AppCard key={app.id} app={app} unlocked={Boolean(session)} flight={flight} shelf={shelf} />
         ))}
-        <NextAppCard />
       </div>
 
       <div className="section-title">

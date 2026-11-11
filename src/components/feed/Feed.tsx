@@ -240,6 +240,16 @@ export async function Feed({ personal }: { personal: boolean }) {
         <HolidayCard list={feed.holidays} personal={personal} />
         {personal ? (
           <>
+            {feed.highlight && (
+              <Link href="/estante?aba=destaques" className="side-card hl-card">
+                <p className="eyebrow">Highlight do dia</p>
+                <blockquote>{feed.highlight.text}</blockquote>
+                <p className="hl-from">
+                  {feed.highlight.book}
+                  {feed.highlight.author ? ` · ${feed.highlight.author}` : ""}
+                </p>
+              </Link>
+            )}
             <RoutinesCard routines={feed.routines} />
             <CalendarHint configured={feed.calendar.configured} errors={feed.calendar.errors} />
           </>
