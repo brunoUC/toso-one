@@ -70,6 +70,9 @@ cadastre as variáveis de ambiente:
 
 O `vercel.json` já cuida do resto: com `CONVEX_DEPLOY_KEY` presente, o build
 publica as funções do Convex e depois compila o Next com a URL certa.
+Cadastre a `CONVEX_DEPLOY_KEY` **só no ambiente Production**: se ela valer
+também para Preview, cada branch publicado manda as funções *dele* para o
+Convex de produção e apaga as que só existem no `main`.
 
 **Editor de rotas.** Quem grava no GitHub é a API do próprio Flight
 Tracker (`api/` daquele repositório), que já tem o token. O toso one só

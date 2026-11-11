@@ -147,8 +147,8 @@ export const refreshNow = action({
 
 // ── Conectar ───────────────────────────────────────────────────────────────
 
-async function connected(ctx: Ctx, jar: ig.Jar) {
-  const user = await ig.me(jar);
+async function connected(ctx: Ctx, jar: ig.Jar, usernameHint?: string) {
+  const user = await ig.me(jar, usernameHint);
   await ctx.runMutation(ref.saveConnected, { jar: await seal(jar), user });
   await ctx.scheduler.runAfter(0, ref.tick, { manual: true });
   return { ok: true as const, username: user.username };
@@ -156,8 +156,8 @@ async function connected(ctx: Ctx, jar: ig.Jar) {
 
 type ConnectResult = { ok: true; username: string } | { ok: false; twoFactor?: boolean; method?: string; error?: string };
 
-async function outcome(ctx: Ctx, r: ig.LoginResult): Promise<ConnectResult> {
-  if (r.kind === "ok") return connected(ctx, r.jar);
+async function outcome(ctx: Ctx, r: ig.LoginResult, username?: string): Promise<ConnectResult> {
+  if (r.kind === "ok") return connected(ctx, r.jar, username);
   if (r.kind === "twoFactor") {
     await ctx.runMutation(ref.savePending, { jar: await seal(r.jar), identifier: r.identifier, username: r.username, method: r.method });
     return { ok: false, twoFactor: true, method: r.method };
@@ -170,7 +170,8 @@ export const login = action({
   handler: async (ctx, { secret, username, password }): Promise<ConnectResult> => {
     assertServer(secret);
     try {
-      return await outcome(ctx, await ig.login(username.trim().replace(/^@/, ""), password));
+      const user = username.trim().replace(/^@/, "").toLowerCase();
+      return await outcome(ctx, await ig.login(user, password), user);
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }
@@ -184,7 +185,7 @@ export const verifyCode = action({
     const st = (await ctx.runQuery(ref.state, {})) as State | null;
     if (!st?.pendingJar || !st.pendingIdentifier || !st.pendingUsername) return { ok: false, error: "Comece a entrada de novo." };
     try {
-      return await outcome(ctx, await ig.twoFactor(await open<ig.Jar>(st.pendingJar), st.pendingUsername, st.pendingIdentifier, code));
+      return await outcome(ctx, await ig.twoFactor(await open<ig.Jar>(st.pendingJar), st.pendingUsername, st.pendingIdentifier, code), st.pendingUsername);
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }

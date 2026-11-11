@@ -91,6 +91,10 @@ function headers(jar: Jar, extra: Record<string, string> = {}): Record<string, s
     "X-IG-App-ID": APP_ID,
     "X-Requested-With": "XMLHttpRequest",
     "X-ASBD-ID": "129477",
+    "X-IG-WWW-Claim": "0",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
     Referer: `${IG}/`,
     Origin: IG,
     ...(jar.csrftoken ? { "X-CSRFToken": jar.csrftoken } : {}),
@@ -127,6 +131,9 @@ export async function igGet<T>(jar: Jar, path: string): Promise<T> {
       /challenge|checkpoint/.test(to) ? "checkpoint" : "login",
     );
   }
+  if (res.status === 429) {
+    throw new IgError("O Instagram pediu uma pausa (muitos pedidos). Espere alguns minutos e tente de novo.", "rate");
+  }
   const text = await res.text();
   let body: Body | null = null;
   try {
@@ -135,7 +142,7 @@ export async function igGet<T>(jar: Jar, path: string): Promise<T> {
     // HTML no lugar de JSON = página de login.
     throw /not-logged-in|\/accounts\/login|login_required/i.test(text.slice(0, 6000))
       ? new IgError("A sessão do Instagram expirou. Conecte de novo.", "login")
-      : new IgError(`Resposta inesperada do Instagram (${res.status}).`, "other");
+      : new IgError(`Resposta inesperada do Instagram (${res.status} em ${path.split("?")[0]}).`, "other");
   }
   const err = classify(res.status, body);
   if (err) throw err;
@@ -171,7 +178,10 @@ type LoginBody = {
 };
 
 function loginOutcome(status: number, body: LoginBody & Body, jar: Jar): LoginResult {
-  if (body.authenticated && jar.sessionid) return { kind: "ok", jar };
+  if (body.authenticated && jar.sessionid) {
+    if (!jar.ds_user_id && body.userId) jar.ds_user_id = String(body.userId);
+    return { kind: "ok", jar };
+  }
   if (body.two_factor_required && body.two_factor_info) {
     const info = body.two_factor_info;
     return {
@@ -345,10 +355,26 @@ export function collectMedia(node: unknown, out: RawMedia[] = [], depth = 0): Ra
 
 // ── Endpoints ──────────────────────────────────────────────────────────────
 
-export async function me(jar: Jar): Promise<IgUser> {
-  const uid = userIdOf(jar);
-  const r = await igGet<{ user: RawUser }>(jar, `/api/v1/users/${uid}/info/`);
-  return toUser({ ...r.user, pk: r.user.pk ?? uid });
+// Quem é a conta conectada. Usa as rotas da própria página web (as do app
+// de celular respondem 429 a quem chama como navegador). Se o Instagram
+// recusar por excesso de pedidos, devolve só o id e o usuário que já se
+// sabe: a sessão vale do mesmo jeito e o resto se completa depois.
+export async function me(jar: Jar, usernameHint?: string): Promise<IgUser> {
+  const pk = userIdOf(jar);
+  let username = usernameHint ?? "";
+  try {
+    if (!username) {
+      const r = await igGet<{ form_data?: { username?: string } }>(jar, "/api/v1/accounts/edit/web_form_data/");
+      username = r.form_data?.username ?? "";
+    }
+    if (username) {
+      const p = await profile(jar, username);
+      return { pk: p.pk || pk, username: p.username, fullName: p.fullName, pic: p.pic, isPrivate: p.isPrivate, isVerified: p.isVerified };
+    }
+  } catch (err) {
+    if (err instanceof IgError && (err.kind === "login" || err.kind === "checkpoint")) throw err;
+  }
+  return { pk, username: username || pk, fullName: "", pic: "", isPrivate: false, isVerified: false };
 }
 
 export async function followingPage(jar: Jar, maxId?: string): Promise<{ users: IgUser[]; next?: string }> {
