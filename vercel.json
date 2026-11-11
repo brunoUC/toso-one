@@ -4,7 +4,7 @@
   "buildCommand": "if [ -n \"$CONVEX_DEPLOY_KEY\" ]; then npx convex deploy --cmd 'npm run build'; else npm run build; fi",
   "crons": [
     {
-      "path": "/api/feed/manha",
+      "path": "/api/semana/manha",
       "schedule": "7 10 * * *"
     }
   ]

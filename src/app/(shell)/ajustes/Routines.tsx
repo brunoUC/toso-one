@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Routine } from "@/lib/feed";
+import type { Routine } from "@/lib/semana";
 
 // Editor das rotinas da semana (o que aparece no feed do hub nos dias certos).
 

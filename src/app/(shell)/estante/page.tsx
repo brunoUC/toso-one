@@ -5,7 +5,7 @@ import { requireSession } from "@/lib/auth";
 import { convexConfigured } from "@/lib/convex";
 import { getHighlights, getShelf, highlightOfTheDay, type ShelfItem } from "@/lib/estante";
 import { KIND_LABEL, TABS, statusLabel, type TabId } from "@/lib/estante-labels";
-import { todayInSp } from "@/lib/feed";
+import { todayInSp } from "@/lib/semana";
 import { AddBox } from "./AddBox";
 import { Highlights, Importer, ItemActions } from "./client";
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
-import { getFeed, type FeedDay, type FeedItem, type Routine } from "@/lib/feed";
+import { getFeed, type FeedDay, type FeedItem, type Routine } from "@/lib/semana";
 import { daysBetween, type UpcomingHoliday } from "@/lib/holidays";
 
 // "Sua semana" na página inicial: hoje em destaque, os próximos seis dias,
@@ -227,7 +227,7 @@ function CalendarHint({ errors, configured }: { errors: string[]; configured: bo
   );
 }
 
-export async function Feed({ personal }: { personal: boolean }) {
+export async function Semana({ personal }: { personal: boolean }) {
   const feed = await getFeed({ personal });
   const [today, ...next] = feed.days;
   return (
@@ -265,7 +265,7 @@ export async function Feed({ personal }: { personal: boolean }) {
   );
 }
 
-export function FeedSkeleton() {
+export function SemanaSkeleton() {
   return (
     <div className="feed" aria-busy="true">
       <div className="feed-main">

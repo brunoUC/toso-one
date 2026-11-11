@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { AppCard, type FlightHighlight, type ShelfSummary } from "@/components/AppCard";
-import { Feed, FeedSkeleton } from "@/components/feed/Feed";
+import { Semana, SemanaSkeleton } from "@/components/semana/Semana";
 import { EnablePasskeyButton } from "@/components/EnablePasskey";
 import { Icon, type IconName } from "@/components/Icon";
 import { Circuit, RobotArm } from "@/components/RobotArm";
@@ -9,7 +9,7 @@ import { getSession } from "@/lib/auth";
 import { convexConfigured, recentEvents, type ActivityEvent } from "@/lib/convex";
 import { fetchFlights, tripText } from "@/lib/flights";
 import { getShelf } from "@/lib/estante";
-import { todayInSp } from "@/lib/feed";
+import { todayInSp } from "@/lib/semana";
 import { brl, dateEyebrow, greeting, relativeDay } from "@/lib/format";
 import { upcomingHolidays } from "@/lib/holidays";
 import { getWeather } from "@/lib/weather";
@@ -156,8 +156,8 @@ export default async function HubPage() {
         </span>
         <h2>Sua semana</h2>
       </div>
-      <Suspense fallback={<FeedSkeleton />}>
-        <Feed personal={Boolean(session)} />
+      <Suspense fallback={<SemanaSkeleton />}>
+        <Semana personal={Boolean(session)} />
       </Suspense>
 
       {session && convexConfigured() && (

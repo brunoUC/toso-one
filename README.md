@@ -201,7 +201,7 @@ Conectar outro banco: conecte no Meu Pluggy e rode
 
 ## Sua semana (feed da página inicial)
 
-`src/lib/feed.ts` junta, para hoje e os próximos seis dias:
+`src/lib/semana.ts` junta, para hoje e os próximos seis dias:
 
 - **Agenda do Google Calendar** (`src/lib/calendar.ts`): sem OAuth, pelo
   endereço secreto iCal de cada agenda (Google Calendar → Configurações →
@@ -223,7 +223,7 @@ Conectar outro banco: conecte no Meu Pluggy e rode
 - **Highlight do dia** da Estante.
 
 **Resumo da manhã**: o cron da Vercel (`vercel.json`) chama
-`/api/feed/manha` às 07:07 com `CRON_SECRET` e manda por push o dia de hoje
+`/api/semana/manha` às 07:07 com `CRON_SECRET` e manda por push o dia de hoje
 (rotinas, agenda, feriado, chuva). Dia vazio não manda nada. Cadastre
 `CRON_SECRET` na Vercel (a Vercel envia sozinha no cabeçalho).
 

@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { api, convex, convexConfigured, serverSecret } from "@/lib/convex";
-import { getFeed, morningDigest } from "@/lib/feed";
+import { getFeed, morningDigest } from "@/lib/semana";
 
 // Resumo da manhã por push: o cron da Vercel (vercel.json) chama às 07:07
 // com "Authorization: Bearer $CRON_SECRET". Manda o dia de hoje do feed

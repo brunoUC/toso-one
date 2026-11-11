@@ -2,7 +2,7 @@
 // em src/app/<href>. `private: true` coloca o app atrás do login — o proxy e
 // a própria página conferem a sessão.
 
-export type Tone = "sky" | "emerald" | "sand" | "violet";
+export type Tone = "sky" | "emerald" | "sand" | "violet" | "rose";
 
 export type AppEntry = {
   id: string;
@@ -42,7 +42,7 @@ export const APPS: AppEntry[] = [
     description: "Livros, filmes, séries e highlights do Kindle",
     href: "/estante",
     icon: "book",
-    tone: "violet",
+    tone: "rose",
     private: true,
     status: "beta",
   },

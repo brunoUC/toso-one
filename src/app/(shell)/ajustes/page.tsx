@@ -7,7 +7,7 @@ import { requireSession } from "@/lib/auth";
 import { convexConfigured, listPasskeys, type StoredPasskey } from "@/lib/convex";
 import { passwordConfigured } from "@/lib/password";
 import { THEME_COOKIE } from "@/lib/theme";
-import { getRoutines } from "@/lib/feed";
+import { getRoutines } from "@/lib/semana";
 import { RemovePasskey, SignOut, ThemePicker } from "./controls";
 import { RoutinesEditor } from "./Routines";
 
